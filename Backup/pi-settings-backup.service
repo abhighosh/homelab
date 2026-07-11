@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up Pi settings and persistent data to the SD card
+RequiresMountsFor=/mnt/pi-backup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pi-settings-backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=infinity

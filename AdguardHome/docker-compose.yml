@@ -5,16 +5,25 @@ services:
     image: adguard/adguardhome:v0.107.74
     container_name: adguard-home
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     # Use host network mode for DNS to work properly,
     # or map individual ports as shown below
     ports:
-      # DNS ports - these handle all DNS queries
-      - "53:53/tcp"
-      - "53:53/udp"
+      # DNS serves LAN clients and the tailnet's abhighosh.co.uk split-DNS route.
+      # Explicit bindings prevent exposure through public IPv6 and Docker bridges.
+      - "${LAN_IP:-192.168.0.220}:53:53/tcp"
+      - "${LAN_IP:-192.168.0.220}:53:53/udp"
+      - "${TAILSCALE_IP:-100.99.54.40}:53:53/tcp"
+      - "${TAILSCALE_IP:-100.99.54.40}:53:53/udp"
       # DNS-over-TLS
-      - "853:853/tcp"
+      - "${LAN_IP:-192.168.0.220}:853:853/tcp"
       # DNS-over-HTTPS
-      - "444:443/tcp"
+      - "${LAN_IP:-192.168.0.220}:444:443/tcp"
     volumes:
       # Persist configuration across container restarts
       - ./conf:/opt/adguardhome/conf

@@ -2,17 +2,25 @@ services:
   app:
     image: 'jc21/nginx-proxy-manager:2.14.0'
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:81/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
     ports:
       # These ports are in format <host-port>:<container-port>
-      - '80:80' # Public HTTP Port
-      - '443:443' # Public HTTPS Port
+      # Management hosts resolve to the Tailscale address, so do not expose the
+      # proxy on the LAN, public IPv6, or Docker bridge interfaces.
+      - '${TAILSCALE_IP:-100.99.54.40}:80:80'
+      - '${TAILSCALE_IP:-100.99.54.40}:443:443'
       - '127.0.0.1:81:81' # Admin Web Port (local emergency access only)
       # Add any other Stream port you want to expose
       # - '21:21' # FTP
 
     environment:
-      TZ: "Australia/Brisbane"
+      TZ: "Europe/London"
 
       # Uncomment this if you want to change the location of
       # the SQLite DB file within the container

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly BACKUP_MOUNT=/mnt/pi-backup
+readonly BACKUP_UUID=68fe2eaa-ebd0-45c4-a810-b9051f8ad562
+readonly SNAPSHOT_DIR="${BACKUP_MOUNT}/snapshots"
+readonly TIMESTAMP="$(date --utc +%Y-%m-%dT%H%M%SZ)"
+readonly INCOMPLETE="${SNAPSHOT_DIR}/.${TIMESTAMP}.incomplete"
+readonly COMPLETE="${SNAPSHOT_DIR}/${TIMESTAMP}"
+
+exec 9>/run/lock/pi-settings-backup.lock
+flock -n 9 || { echo "A Pi settings backup is already running" >&2; exit 1; }
+
+if [[ "$(findmnt -n -o UUID --target "${BACKUP_MOUNT}")" != "${BACKUP_UUID}" ]]; then
+  echo "Expected backup filesystem UUID ${BACKUP_UUID} at ${BACKUP_MOUNT}" >&2
+  exit 1
+fi
+
+if [[ "$(findmnt -n -o FSTYPE --target "${BACKUP_MOUNT}")" != ext4 ]]; then
+  echo "Backup filesystem at ${BACKUP_MOUNT} is not ext4" >&2
+  exit 1
+fi
+
+mkdir -p "${SNAPSHOT_DIR}" "${INCOMPLETE}/root" "${INCOMPLETE}/boot-firmware"
+
+previous="$(find "${SNAPSHOT_DIR}" -mindepth 1 -maxdepth 1 -type d \
+  -name '20??-??-??T??????Z' -printf '%f\n' | sort -r | head -n 1 || true)"
+
+link_root=()
+link_boot=()
+if [[ -n "${previous}" ]]; then
+  link_root=(--link-dest="${SNAPSHOT_DIR}/${previous}/root")
+  link_boot=(--link-dest="${SNAPSHOT_DIR}/${previous}/boot-firmware")
+fi
+
+docker_was_active=false
+if systemctl is-active --quiet docker.service; then
+  docker_was_active=true
+fi
+
+restore_services() {
+  if [[ "${docker_was_active}" == true ]]; then
+    systemctl start docker.socket docker.service
+  fi
+}
+trap restore_services EXIT
+
+systemctl stop docker.service docker.socket
+
+rsync -aAXH --numeric-ids --one-file-system --delete \
+  --exclude='/dev/***' \
+  --exclude='/proc/***' \
+  --exclude='/sys/***' \
+  --exclude='/run/***' \
+  --exclude='/tmp/***' \
+  --exclude='/mnt/***' \
+  --exclude='/media/***' \
+  --exclude='/var/cache/apt/archives/***' \
+  --exclude='/var/cache/man/***' \
+  --exclude='/var/lib/containerd/***' \
+  --exclude='/var/lib/docker/rootfs/***' \
+  --exclude='/var/lib/docker/tmp/***' \
+  --exclude='/var/log/journal/***' \
+  "${link_root[@]}" / "${INCOMPLETE}/root/"
+
+rsync -aH --numeric-ids --delete "${link_boot[@]}" \
+  /boot/firmware/ "${INCOMPLETE}/boot-firmware/"
+
+cat >"${INCOMPLETE}/backup-info.txt" <<EOF
+created_utc=${TIMESTAMP}
+hostname=$(hostname)
+root_source=$(findmnt -n -o SOURCE /)
+root_uuid=$(findmnt -n -o UUID /)
+boot_source=$(findmnt -n -o SOURCE /boot/firmware)
+boot_uuid=$(findmnt -n -o UUID /boot/firmware)
+EOF
+
+sync -f "${INCOMPLETE}"
+mv "${INCOMPLETE}" "${COMPLETE}"
+
+mapfile -t expired < <(find "${SNAPSHOT_DIR}" -mindepth 1 -maxdepth 1 -type d \
+  -name '20??-??-??T??????Z' -printf '%f\n' | sort -r | tail -n +3)
+for snapshot in "${expired[@]}"; do
+  rm -rf --one-file-system "${SNAPSHOT_DIR:?}/${snapshot}"
+done
+
+echo "Backup completed: ${COMPLETE}"

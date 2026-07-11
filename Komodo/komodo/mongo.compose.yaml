@@ -14,6 +14,12 @@ services:
       komodo.skip: # Prevent Komodo from stopping with StopAllContainers
     command: --quiet --wiredTigerCacheSizeGB 0.25
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     # ports:
     #   - 27017:27017
     volumes:
@@ -30,7 +36,15 @@ services:
     init: true
     restart: unless-stopped
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:9120/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     env_file: ./compose.env
     environment:
       KOMODO_DATABASE_ADDRESS: mongo:27017
@@ -70,7 +84,15 @@ services:
     init: true
     restart: unless-stopped
     depends_on:
-      - core
+      core:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "pidof", "periphery"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     env_file: ./compose.env
     volumes:
       ## Attach the Core / Periphery communication keys

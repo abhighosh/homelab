@@ -13,6 +13,14 @@ Compose definitions and non-secret configuration for the self-hosted services on
 
 Each service is kept in its own directory. Run Compose commands from that directory so relative bind mounts resolve correctly.
 
+Services with configurable local time use the `Europe/London` IANA time zone so
+scheduled tasks and timestamps consistently follow the host, including daylight
+saving transitions.
+
+Each Compose service has a health check. Komodo additionally gates Core startup
+on a healthy MongoDB and Periphery startup on a healthy Core, so dependency
+startup is based on readiness rather than container creation order.
+
 ```sh
 cd UptimeKuma
 docker compose config
@@ -32,10 +40,15 @@ Create the network once before deploying these projects on a new host:
 docker network create proxy
 ```
 
-NPM remains the entry point on ports 80 and 443. Its direct admin port is bound
+NPM remains the entry point on ports 80 and 443, bound only to the host's
+Tailscale address (`100.99.54.40` by default). Its direct admin port is bound
 only to `127.0.0.1:81`, while `nginxproxymanager.abhighosh.co.uk` continues to
-proxy to the same UI through Tailscale. AdGuard DNS ports and Omada's host-mode
-networking are intentional exceptions to the shared proxy pattern.
+proxy to the same UI through Tailscale. AdGuard DNS binds to both the LAN and
+Tailscale addresses because the tailnet routes `abhighosh.co.uk` DNS queries to
+this host. Its DoT and direct HTTPS ports bind only to the LAN address
+(`192.168.0.220` by default). Omada's host-mode networking is an intentional
+exception. Override the defaults with `TAILSCALE_IP` or `LAN_IP` when addresses
+change.
 
 Komodo uses an ignored `komodo/compose.env` file containing deployment-specific settings:
 
@@ -81,3 +94,29 @@ Komodo like the other infrastructure stacks.
 Prefer exact image versions where upstream provides immutable release tags,
 and documented major/minor or hardware-flavor tracks where a rolling channel is
 required. Updating an exact tag is a source-controlled configuration change.
+
+## Pi settings backup
+
+`pi-settings-backup.timer` creates a filesystem snapshot on the SD card mounted
+at `/mnt/pi-backup` every Sunday at 03:30, with up to 30 minutes of randomized
+delay. The two newest successful snapshots are retained. Docker is stopped
+while files are copied so service databases and volumes are consistent, then
+started again even if the backup fails.
+
+Snapshots include the root filesystem and `/boot/firmware`, while excluding
+runtime virtual filesystems, caches, logs, and reproducible container image
+layers. Later snapshots hard-link unchanged files to reduce SD usage.
+
+Check the schedule and latest result with:
+
+```sh
+systemctl list-timers pi-settings-backup.timer
+systemctl status pi-settings-backup.service
+journalctl -u pi-settings-backup.service
+```
+
+Start an extra backup with `sudo systemctl start pi-settings-backup.service`.
+Snapshot contents are ordinary files under `/mnt/pi-backup/snapshots/`; restore
+individual settings with `rsync -aAXH --numeric-ids` while the affected service
+is stopped. A full-system restore should be performed from rescue media onto a
+fresh filesystem, followed by restoring the separate `boot-firmware` directory.

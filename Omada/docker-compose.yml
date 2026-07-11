@@ -3,6 +3,12 @@ services:
     container_name: omada-controller
     image: mbentley/omada-controller:6.2
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5m
     ulimits:
       nofile:
         soft: 4096
@@ -31,7 +37,7 @@ services:
       - SHOW_MONGODB_LOGS=false
       - SSL_CERT_NAME=tls.crt
       - SSL_KEY_NAME=tls.key
-      - TZ=Etc/UTC
+      - TZ=Europe/London
     volumes:
       - omada-data:/opt/tplink/EAPController/data
       - omada-logs:/opt/tplink/EAPController/logs

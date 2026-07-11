@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly Pi settings backup
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=30m
+Unit=pi-settings-backup.service
+
+[Install]
+WantedBy=timers.target

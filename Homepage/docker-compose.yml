@@ -3,9 +3,14 @@ services:
     image: ghcr.io/gethomepage/homepage:v1.13.1
     restart: unless-stopped
     container_name: homepage
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/healthcheck || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     volumes:
       - ./config:/app/config # Make sure your local config directory exists
-      - /var/run/docker.sock:/var/run/docker.sock:ro # (optional) For docker integrations
     environment:
       HOMEPAGE_ALLOWED_HOSTS: abhighosh.co.uk # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
     networks:
