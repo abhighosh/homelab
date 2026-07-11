@@ -21,7 +21,9 @@ services:
       - mongo-config:/data/configdb
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${KOMODO_DATABASE_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/database_password
+    secrets:
+      - database_password
 
   core:
     image: ghcr.io/moghtech/komodo-core:${COMPOSE_KOMODO_IMAGE_TAG:-2}
@@ -34,6 +36,17 @@ services:
     env_file: ./compose.env
     environment:
       KOMODO_DATABASE_ADDRESS: mongo:27017
+      KOMODO_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      KOMODO_JWT_SECRET_FILE: /run/secrets/jwt_secret
+      KOMODO_WEBHOOK_SECRET_FILE: /run/secrets/webhook_secret
+      KOMODO_AWS_ACCESS_KEY_ID_FILE: /run/secrets/aws_access_key_id
+      KOMODO_AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/aws_secret_access_key
+    secrets:
+      - database_password
+      - jwt_secret
+      - webhook_secret
+      - aws_access_key_id
+      - aws_secret_access_key
     volumes:
       ## Attach the Core / Periphery communication keys
       - keys:/config/keys
@@ -80,3 +93,15 @@ volumes:
   mongo-config:
   # Core / Periphery
   keys:
+
+secrets:
+  database_password:
+    file: ./secrets/database_password
+  jwt_secret:
+    file: ./secrets/jwt_secret
+  webhook_secret:
+    file: ./secrets/webhook_secret
+  aws_access_key_id:
+    file: ./secrets/aws_access_key_id
+  aws_secret_access_key:
+    file: ./secrets/aws_secret_access_key
