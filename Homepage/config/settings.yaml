@@ -1,0 +1,15 @@
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/configs/settings/
+
+layout:
+  Services:
+    style: row
+    columns: 5
+  Remote Development:
+    style: row
+    columns: 5
+  Development Previews:
+    style: row
+    columns: 5
+    initiallyCollapsed: true

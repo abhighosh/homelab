@@ -1,0 +1,33 @@
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+**/compose.env
+**/*.secret
+**/secrets/
+
+# Service runtime state
+AdguardHome/conf/
+AdguardHome/work/
+NginxProxyManager/data/
+NginxProxyManager/letsencrypt/
+UptimeKuma/data/
+
+# Logs, databases, backups, and certificates
+**/logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+*.pem
+*.key
+*.crt
+*.pfx
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*~

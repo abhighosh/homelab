@@ -1,0 +1,65 @@
+---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/latest/configs/services
+- Services:
+    - Uptime Kuma:
+        icon: si-uptimekuma-#ffffff
+        description: Uptime Kuma
+        href: https://uptimekuma.abhighosh.co.uk
+        target: _self
+
+    - Komodo:
+        icon: si-docker-#ffffff
+        description: Container management
+        href: https://komodo.abhighosh.co.uk
+        target: _self
+
+    - Adguard Home:
+        icon: si-adguard-#ffffff
+        description: AdGuard DNS AdBlocker
+        href: https://adguard.abhighosh.co.uk
+        target: _self
+
+    - Omada Network:
+        icon: si-omadacloud-#ffffff
+        description: Omada Network Management
+        href: https://omada.abhighosh.co.uk
+        target: _self
+
+    - Nginx Proxy Manager:
+        icon: si-nginxproxymanager-#ffffff
+        description: Nginx Proxy Manager
+        href: https://nginxproxymanager.abhighosh.co.uk
+        target: _self
+
+    - Scrypted:
+        icon: si-airplayvideo-#ffffff
+        description: Scrypted
+        href: https://scrypted.abhighosh.co.uk
+        target: _self
+
+    - OpenWebUI:
+        icon: si-ollama-#ffffff
+        description: OpenWebUI (Ollama)
+        href: https://openwebui.abhighosh.co.uk
+        target: _self
+
+- Remote Development:
+    - VScode Ubuntu Desktop:
+        icon: si-visualstudiocode-#ffffff
+        description: VS Code Server
+        href: https://vscode.abhighosh.co.uk/?folder=/home/abhi/Development/
+        target: _self
+
+- Development Previews:
+    - Preview Rails-Sprintscope2:
+        icon: si-rubyonrails-#ffffff
+        description: Rails-Sprintscope2
+        href: http://100.118.235.83:4010
+        target: _self
+
+    - Preview Rails-Sprintslide:
+        icon: si-rubyonrails-#ffffff
+        description: Sprintslide
+        href: http://100.118.235.83:7000
+        target: _self

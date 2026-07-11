@@ -1,0 +1,12 @@
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    restart: unless-stopped
+    container_name: homepage
+    ports:
+      - 3002:3000
+    volumes:
+      - ./config:/app/config # Make sure your local config directory exists
+      - /var/run/docker.sock:/var/run/docker.sock:ro # (optional) For docker integrations
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: abhighosh.co.uk # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts

@@ -1,0 +1,28 @@
+# docker-compose.yml - AdGuard Home deployment
+
+services:
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard-home
+    restart: unless-stopped
+    # Use host network mode for DNS to work properly,
+    # or map individual ports as shown below
+    ports:
+      # DNS ports - these handle all DNS queries
+      - "53:53/tcp"
+      - "53:53/udp"
+      # Web UI and API
+      - "3003:3000/tcp"
+      - "82:80/tcp"
+      # DNS-over-TLS
+      - "853:853/tcp"
+      # DNS-over-HTTPS
+      - "444:443/tcp"
+    volumes:
+      # Persist configuration across container restarts
+      - ./conf:/opt/adguardhome/conf
+      # Persist work data including query logs and filters
+      - ./work:/opt/adguardhome/work
+    # Cap add is needed if you want to use DHCP functionality
+    cap_add:
+      - NET_ADMIN
