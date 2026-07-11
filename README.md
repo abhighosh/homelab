@@ -65,3 +65,19 @@ still prevents other host users from traversing to it.
 Compose definitions and safe application configuration belong in Git. Runtime data, databases, logs, certificates, backups, and environment files do not. Those ignored files still require a separate, tested backup process.
 
 Before committing, use `git status --short --ignored` to confirm that no sensitive or generated files are being added.
+
+## Image update policy
+
+Komodo is the update control plane for infrastructure on both `Local` and
+`ubuntu-desktop`. Stable infrastructure stacks poll for changed image digests,
+but automatic updates are disabled. Review upstream release notes and use a
+deliberate Stack deploy/redeploy to apply an approved update.
+
+The scheduled `Global Auto Update` procedure is disabled. SprintSlide is an
+active development stack and is excluded from infrastructure update polling.
+Scrypted no longer uses Watchtower; its updates are reviewed and deployed from
+Komodo like the other infrastructure stacks.
+
+Prefer exact image versions where upstream provides immutable release tags,
+and documented major/minor or hardware-flavor tracks where a rolling channel is
+required. Updating an exact tag is a source-controlled configuration change.

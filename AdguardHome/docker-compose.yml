@@ -2,7 +2,7 @@
 
 services:
   adguard:
-    image: adguard/adguardhome:latest
+    image: adguard/adguardhome:v0.107.74
     container_name: adguard-home
     restart: unless-stopped
     # Use host network mode for DNS to work properly,
