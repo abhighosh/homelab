@@ -31,8 +31,6 @@ services:
     restart: unless-stopped
     depends_on:
       - mongo
-    ports:
-      - 9120:9120
     env_file: ./compose.env
     environment:
       KOMODO_DATABASE_ADDRESS: mongo:27017
@@ -47,6 +45,11 @@ services:
       - webhook_secret
       - aws_access_key_id
       - aws_secret_access_key
+    networks:
+      default:
+      proxy:
+        aliases:
+          - komodo-core
     volumes:
       ## Attach the Core / Periphery communication keys
       - keys:/config/keys
@@ -105,3 +108,8 @@ secrets:
     file: ./secrets/aws_access_key_id
   aws_secret_access_key:
     file: ./secrets/aws_secret_access_key
+
+networks:
+  proxy:
+    external: true
+    name: proxy

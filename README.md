@@ -19,6 +19,24 @@ docker compose config
 docker compose up -d
 ```
 
+## Shared proxy network
+
+Nginx Proxy Manager and the local web frontends share an external Docker bridge
+named `proxy`. NPM routes the Tailscale-only `*.abhighosh.co.uk` hosts to Docker
+service names, so Homepage, Uptime Kuma, Komodo Core, and the AdGuard web UI do
+not publish management ports on the host.
+
+Create the network once before deploying these projects on a new host:
+
+```sh
+docker network create proxy
+```
+
+NPM remains the entry point on ports 80 and 443. Its direct admin port is bound
+only to `127.0.0.1:81`, while `nginxproxymanager.abhighosh.co.uk` continues to
+proxy to the same UI through Tailscale. AdGuard DNS ports and Omada's host-mode
+networking are intentional exceptions to the shared proxy pattern.
+
 Komodo uses an ignored `komodo/compose.env` file containing deployment-specific settings:
 
 ```sh

@@ -9,6 +9,12 @@ services:
     dns:
       - 100.100.100.100
       - 192.168.0.220
-    ports:
-      # <Host Port>:<Container Port>
-      - "3001:3001"
+    networks:
+      proxy:
+        aliases:
+          - uptime-kuma
+
+networks:
+  proxy:
+    external: true
+    name: proxy

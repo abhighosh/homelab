@@ -11,9 +11,6 @@ services:
       # DNS ports - these handle all DNS queries
       - "53:53/tcp"
       - "53:53/udp"
-      # Web UI and API
-      - "3003:3000/tcp"
-      - "82:80/tcp"
       # DNS-over-TLS
       - "853:853/tcp"
       # DNS-over-HTTPS
@@ -26,3 +23,12 @@ services:
     # Cap add is needed if you want to use DHCP functionality
     cap_add:
       - NET_ADMIN
+    networks:
+      proxy:
+        aliases:
+          - adguard
+
+networks:
+  proxy:
+    external: true
+    name: proxy
