@@ -33,8 +33,10 @@ services:
       - ./data:/data
       - ./letsencrypt:/etc/letsencrypt
     networks:
-      - default
-      - proxy
+      default:
+      proxy:
+        aliases:
+          - nginx-proxy-manager
 
 networks:
   proxy:

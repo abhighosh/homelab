@@ -1,8 +1,58 @@
 services:
+  docker-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:v0.4.2
+    container_name: homepage-docker-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      INFO: 1
+      PING: 1
+      POST: 0
+      VERSION: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - docker-api
+
+  glances-pi:
+    image: nicolargo/glances:4.5.4-full
+    container_name: glances-pi
+    restart: unless-stopped
+    pid: host
+    environment:
+      TZ: Europe/London
+      GLANCES_OPT: "-w"
+    volumes:
+      - /etc/os-release:/etc/os-release:ro
+      - /etc/hostname:/hostfs/hostname:ro
+      - /sys:/sys:ro
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - metrics
+
   homepage:
     image: ghcr.io/gethomepage/homepage:v1.13.1
     restart: unless-stopped
     container_name: homepage
+    depends_on:
+      docker-proxy:
+        condition: service_healthy
+        restart: true
+      glances-pi:
+        condition: service_healthy
+        restart: true
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/healthcheck || exit 1"]
       interval: 30s
@@ -13,12 +63,65 @@ services:
       - ./config:/app/config # Make sure your local config directory exists
     environment:
       HOMEPAGE_ALLOWED_HOSTS: abhighosh.co.uk # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
+      HOMEPAGE_FILE_ADGUARD_USERNAME: /run/secrets/adguard_username
+      HOMEPAGE_FILE_ADGUARD_PASSWORD: /run/secrets/adguard_password
+      HOMEPAGE_FILE_NPM_USERNAME: /run/secrets/npm_username
+      HOMEPAGE_FILE_NPM_PASSWORD: /run/secrets/npm_password
+      HOMEPAGE_FILE_OMADA_USERNAME: /run/secrets/omada_username
+      HOMEPAGE_FILE_OMADA_PASSWORD: /run/secrets/omada_password
+      HOMEPAGE_FILE_OMADA_SITE: /run/secrets/omada_site
+      HOMEPAGE_FILE_KOMODO_KEY: /run/secrets/komodo_key
+      HOMEPAGE_FILE_KOMODO_SECRET: /run/secrets/komodo_secret
+      HOMEPAGE_FILE_GLANCES_USERNAME: /run/secrets/glances_username
+      HOMEPAGE_FILE_GLANCES_PASSWORD: /run/secrets/glances_password
+    secrets:
+      - adguard_username
+      - adguard_password
+      - npm_username
+      - npm_password
+      - omada_username
+      - omada_password
+      - omada_site
+      - komodo_key
+      - komodo_secret
+      - glances_username
+      - glances_password
     networks:
       proxy:
         aliases:
           - homepage
+      docker-api:
+      metrics:
 
 networks:
+  docker-api:
+    internal: true
+  metrics:
+    internal: true
   proxy:
     external: true
     name: proxy
+
+secrets:
+  adguard_username:
+    file: ./secrets/adguard_username
+  adguard_password:
+    file: ./secrets/adguard_password
+  npm_username:
+    file: ./secrets/npm_username
+  npm_password:
+    file: ./secrets/npm_password
+  omada_username:
+    file: ./secrets/omada_username
+  omada_password:
+    file: ./secrets/omada_password
+  omada_site:
+    file: ./secrets/omada_site
+  komodo_key:
+    file: ./secrets/komodo_key
+  komodo_secret:
+    file: ./secrets/komodo_secret
+  glances_username:
+    file: ./secrets/glances_username
+  glances_password:
+    file: ./secrets/glances_password

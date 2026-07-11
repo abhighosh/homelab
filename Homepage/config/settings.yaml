@@ -1,15 +1,27 @@
 ---
-# For configuration options and examples, please see:
-# https://gethomepage.dev/configs/settings/
+title: Homelab
+description: Homelab operations dashboard
+theme: dark
+color: slate
+headerStyle: boxed
+statusStyle: dot
+target: _self
+useEqualHeights: true
+cardBlur: sm
+hideVersion: true
+disableIndexing: true
 
 layout:
-  Services:
+  Status & Control:
     style: row
     columns: 5
-  Remote Development:
+    icon: mdi-server-network
+  Applications:
     style: row
-    columns: 5
-  Development Previews:
+    columns: 2
+    icon: mdi-apps
+  Development:
     style: row
-    columns: 5
+    columns: 3
+    icon: mdi-code-braces
     initiallyCollapsed: true

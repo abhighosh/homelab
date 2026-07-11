@@ -25,6 +25,9 @@ startup is based on readiness rather than container creation order.
 Homepage uses an internal, read-only Docker API proxy to show container health
 and resource statistics. The proxy is isolated on a private network shared only
 with Homepage, permits selected Docker GET endpoints, and rejects POST requests.
+Homepage also runs a local Glances instance on a separate internal-only network
+for whole-host Pi metrics. It publishes no host port and has no access to the
+Docker API proxy.
 Service-widget credentials are mounted from ignored files under
 `Homepage/secrets/` and referenced through `HOMEPAGE_FILE_*` substitutions; no
 credential values belong in tracked YAML.

@@ -1,14 +1,36 @@
 ---
-# For configuration options and examples, please see:
-# https://gethomepage.dev/configs/info-widgets/
-
-- resources:
+- glances:
+    url: http://glances-pi:61208
+    version: 4
+    label: Pi
     cpu: true
-    memory: true
+    mem: true
     cputemp: true
-    network: true
     uptime: true
-    disk: /
+    disk: /hostfs/hostname
+    unit: metric
+
+- glances:
+    url: http://100.118.235.83:61208
+    username: "{{HOMEPAGE_FILE_GLANCES_USERNAME}}"
+    password: "{{HOMEPAGE_FILE_GLANCES_PASSWORD}}"
+    version: 4
+    label: Ubuntu desktop
+    cpu: true
+    mem: true
+    cputemp: true
+    uptime: true
+    # This bind mount resides on ubuntu-desktop's root NVMe filesystem.
+    disk: /root/.config/glances
+    unit: metric
+
+- datetime:
+    text_size: md
+    locale: en-GB
+    format:
+      dateStyle: medium
+      timeStyle: short
+      hourCycle: h23
 
 - search:
     provider: google

@@ -1,65 +1,115 @@
 ---
-# For configuration options and examples, please see:
-# https://gethomepage.dev/latest/configs/services
-- Services:
+- Status & Control:
     - Uptime Kuma:
-        icon: si-uptimekuma-#ffffff
-        description: Uptime Kuma
+        icon: uptime-kuma
+        description: Availability and incident monitoring
         href: https://uptimekuma.abhighosh.co.uk
         target: _self
+        siteMonitor: http://uptime-kuma:3001
+        server: local-docker
+        container: uptimekuma-UptimeKuma-1
+        showStats: true
+        widget:
+          type: uptimekuma
+          url: http://uptime-kuma:3001
+          slug: homepage
+          fields: ["up", "down", "uptime", "incident"]
 
     - Komodo:
-        icon: si-docker-#ffffff
-        description: Container management
+        icon: komodo
+        description: Container and stack control
         href: https://komodo.abhighosh.co.uk
         target: _self
+        siteMonitor: http://komodo-core:9120
+        server: local-docker
+        container: komodo-core-1
+        showStats: true
+        widget:
+          type: komodo
+          url: http://komodo-core:9120
+          key: "{{HOMEPAGE_FILE_KOMODO_KEY}}"
+          secret: "{{HOMEPAGE_FILE_KOMODO_SECRET}}"
+          showSummary: true
+          fields: ["servers", "stacks", "containers"]
 
     - Adguard Home:
-        icon: si-adguard-#ffffff
-        description: AdGuard DNS AdBlocker
+        icon: adguard-home
+        description: DNS filtering and protection
         href: https://adguard.abhighosh.co.uk
         target: _self
+        siteMonitor: http://adguard:80
+        server: local-docker
+        container: adguard-home
+        showStats: true
+        widget:
+          type: adguard
+          url: http://adguard:80
+          username: "{{HOMEPAGE_FILE_ADGUARD_USERNAME}}"
+          password: "{{HOMEPAGE_FILE_ADGUARD_PASSWORD}}"
+          fields: ["queries", "blocked", "filtered", "latency"]
 
     - Omada Network:
-        icon: si-omadacloud-#ffffff
-        description: Omada Network Management
+        icon: omada
+        description: Network infrastructure control
         href: https://omada.abhighosh.co.uk
         target: _self
+        server: local-docker
+        container: omada-controller
+        showStats: true
+        widget:
+          type: omada
+          url: https://192.168.0.220:8043
+          username: "{{HOMEPAGE_FILE_OMADA_USERNAME}}"
+          password: "{{HOMEPAGE_FILE_OMADA_PASSWORD}}"
+          site: "{{HOMEPAGE_FILE_OMADA_SITE}}"
+          fields: ["connectedAp", "activeUser", "connectedSwitches", "alerts"]
 
     - Nginx Proxy Manager:
-        icon: si-nginxproxymanager-#ffffff
-        description: Nginx Proxy Manager
+        icon: nginx-proxy-manager
+        description: TLS and reverse proxy control
         href: https://nginxproxymanager.abhighosh.co.uk
         target: _self
+        siteMonitor: http://nginx-proxy-manager:81
+        server: local-docker
+        container: nginxproxymanager-app-1
+        showStats: true
+        widget:
+          type: npm
+          url: http://nginx-proxy-manager:81
+          username: "{{HOMEPAGE_FILE_NPM_USERNAME}}"
+          password: "{{HOMEPAGE_FILE_NPM_PASSWORD}}"
+          fields: ["enabled", "disabled", "total"]
 
+- Applications:
     - Scrypted:
-        icon: si-airplayvideo-#ffffff
-        description: Scrypted
+        icon: scrypted
+        description: Camera and smart-home bridge
         href: https://scrypted.abhighosh.co.uk
         target: _self
 
     - OpenWebUI:
-        icon: si-ollama-#ffffff
-        description: OpenWebUI (Ollama)
+        icon: open-webui
+        description: Local AI workspace
         href: https://openwebui.abhighosh.co.uk
         target: _self
+        siteMonitor: https://openwebui.abhighosh.co.uk
 
-- Remote Development:
-    - VScode Ubuntu Desktop:
-        icon: si-visualstudiocode-#ffffff
-        description: VS Code Server
+- Development:
+    - VS Code:
+        icon: visual-studio-code
+        description: Remote development workspace
         href: https://vscode.abhighosh.co.uk/?folder=/home/abhi/Development/
         target: _self
 
-- Development Previews:
-    - Preview Rails-Sprintscope2:
-        icon: si-rubyonrails-#ffffff
-        description: Rails-Sprintscope2
+    - Sprintscope Preview:
+        icon: ruby-on-rails
+        description: Sprintscope development preview
         href: http://100.118.235.83:4010
         target: _self
 
-    - Preview Rails-Sprintslide:
-        icon: si-rubyonrails-#ffffff
-        description: Sprintslide
+    - SprintSlide Preview:
+        icon: ruby-on-rails
+        description: SprintSlide development preview
         href: http://100.118.235.83:7000
         target: _self
+        siteMonitor: http://100.118.235.83:7000
