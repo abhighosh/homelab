@@ -1,0 +1,23 @@
+services:
+  scrypted:
+    image: ghcr.io/koush/scrypted:nvidia
+    container_name: scrypted
+    restart: unless-stopped
+    runtime: nvidia
+    network_mode: host
+    security_opt:
+      - apparmor:unconfined
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket
+      - /home/abhi/Docker/Scrypted/volume:/server/volume
+    logging:
+      driver: none
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('https').get({hostname:'127.0.0.1',port:10443,rejectUnauthorized:false},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

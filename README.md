@@ -6,6 +6,7 @@ Compose definitions and non-secret configuration for the self-hosted services on
 
 - AdGuard Home
 - Homepage
+- Glances on ubuntu-desktop
 - Komodo with MongoDB and Periphery
 - Nginx Proxy Manager
 - Omada Controller
@@ -20,6 +21,24 @@ saving transitions.
 Each Compose service has a health check. Komodo additionally gates Core startup
 on a healthy MongoDB and Periphery startup on a healthy Core, so dependency
 startup is based on readiness rather than container creation order.
+
+Homepage uses an internal, read-only Docker API proxy to show container health
+and resource statistics. The proxy is isolated on a private network shared only
+with Homepage, permits selected Docker GET endpoints, and rejects POST requests.
+Service-widget credentials are mounted from ignored files under
+`Homepage/secrets/` and referenced through `HOMEPAGE_FILE_*` substitutions; no
+credential values belong in tracked YAML.
+The Komodo widget uses a non-expiring API key owned by the dedicated `homepage`
+service user. That user has only `Read` base permission on Server and Stack
+resources; revoke and replace the key if the Homepage host is compromised.
+The Uptime Kuma widget reads the internal `homepage` status page, which contains
+the active homelab monitors and is not linked from the public dashboard.
+The stable infrastructure on `ubuntu-desktop` is defined under
+`UbuntuDesktop/`. Komodo deploys these as Git-backed stacks from this repository;
+runtime data and Glances credentials remain ignored on the remote host. The
+Homepage header reads host metrics from Glances 4 over its Tailscale-only,
+authenticated API. SprintSlide remains in its application repository and is not
+part of these infrastructure stacks.
 
 ```sh
 cd UptimeKuma

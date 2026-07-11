@@ -12,6 +12,8 @@ AdguardHome/work/
 NginxProxyManager/data/
 NginxProxyManager/letsencrypt/
 UptimeKuma/data/
+UbuntuDesktop/Glances/config/
+UbuntuDesktop/Scrypted/volume/
 
 # Logs, databases, backups, and certificates
 **/logs/

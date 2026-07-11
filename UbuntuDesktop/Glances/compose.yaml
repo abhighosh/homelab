@@ -1,0 +1,21 @@
+services:
+  glances:
+    image: nicolargo/glances:4.5.4-full
+    container_name: glances
+    restart: unless-stopped
+    pid: host
+    environment:
+      TZ: Europe/London
+      GLANCES_OPT: "-w --password -u homepage"
+    ports:
+      - "${TAILSCALE_IP:-100.118.235.83}:61208:61208"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
+      - /home/abhi/Docker/Glances/config:/root/.config/glances:ro
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
