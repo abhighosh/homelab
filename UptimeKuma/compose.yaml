@@ -4,6 +4,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/app/data
+    # Keep homelab DNS stable across host restarts. Docker can otherwise start
+    # before Tailscale and retain public resolvers that cannot resolve these names.
+    dns:
+      - 100.100.100.100
+      - 192.168.0.220
     ports:
       # <Host Port>:<Container Port>
       - "3001:3001"
