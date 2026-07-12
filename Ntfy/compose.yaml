@@ -10,7 +10,9 @@ services:
       TZ: Europe/London
     volumes:
       - ./server.yml:/etc/ntfy/server.yml:ro
-      - ./data:/var/lib/ntfy
+      # Keep runtime state outside Komodo's disposable Git checkout so a
+      # reclone cannot replace the authentication and message databases.
+      - ${NTFY_DATA_PATH:-/home/abhi/Docker/Ntfy/data}:/var/lib/ntfy
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 http://127.0.0.1:80/v1/health -O - | grep -Eq '\"healthy\"[[:space:]]*:[[:space:]]*true' || exit 1"]
       interval: 30s

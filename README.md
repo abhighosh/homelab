@@ -100,6 +100,11 @@ still prevents other host users from traversing to it.
 
 Compose definitions and safe application configuration belong in Git. Runtime data, databases, logs, certificates, backups, and environment files do not. Those ignored files still require a separate, tested backup process.
 
+The ntfy Git-backed Komodo stack keeps its runtime database at
+`/home/abhi/Docker/Ntfy/data` by default rather than inside Komodo's disposable
+repository checkout. Override `NTFY_DATA_PATH` in the Stack environment if the
+host path changes.
+
 Before committing, use `git status --short --ignored` to confirm that no sensitive or generated files are being added.
 
 ## Image update policy
