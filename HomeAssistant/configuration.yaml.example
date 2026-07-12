@@ -1,0 +1,12 @@
+default_config:
+
+# Nginx Proxy Manager terminates HTTPS and reaches Home Assistant from the
+# shared proxy bridge. Do not broaden this to all private networks.
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.24.0.0/16
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml

@@ -91,6 +91,16 @@
         showStats: true
 
 - Applications:
+    - Home Assistant:
+        icon: home-assistant
+        description: Home automation and household control
+        href: https://homeassistant.abhighosh.co.uk
+        target: _self
+        siteMonitor: http://100.99.54.40:8123
+        server: local-docker
+        container: homeassistant
+        showStats: true
+
     - Scrypted:
         icon: scrypted
         description: Camera and smart-home bridge

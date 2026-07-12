@@ -7,6 +7,7 @@ Compose definitions and non-secret configuration for the self-hosted services on
 - AdGuard Home
 - Homepage
 - Glances on ubuntu-desktop
+- Home Assistant
 - Komodo with MongoDB and Periphery
 - Nginx Proxy Manager
 - ntfy
@@ -104,6 +105,11 @@ The ntfy Git-backed Komodo stack keeps its runtime database at
 `/home/abhi/Docker/Ntfy/data` by default rather than inside Komodo's disposable
 repository checkout. Override `NTFY_DATA_PATH` in the Stack environment if the
 host path changes.
+
+Home Assistant follows the same pattern: its Git-backed Compose definition is
+tracked under `HomeAssistant/`, while runtime configuration is kept at
+`/home/abhi/Docker/HomeAssistant/config` by default. Override
+`HOME_ASSISTANT_CONFIG_PATH` in the Stack environment if the host path changes.
 
 Before committing, use `git status --short --ignored` to confirm that no sensitive or generated files are being added.
 

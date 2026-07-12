@@ -18,7 +18,7 @@ layout:
     icon: mdi-server-network
   Applications:
     style: row
-    columns: 2
+    columns: 3
     icon: mdi-apps
   Development:
     style: row

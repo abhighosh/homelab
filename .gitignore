@@ -15,6 +15,7 @@ NginxProxyManager/letsencrypt/
 UptimeKuma/data/
 Ntfy/data/
 Ntfy/bootstrap/
+HomeAssistant/config/
 UbuntuDesktop/Glances/config/
 UbuntuDesktop/Scrypted/volume/
 
