@@ -12,6 +12,8 @@ AdguardHome/work/
 NginxProxyManager/data/
 NginxProxyManager/letsencrypt/
 UptimeKuma/data/
+Ntfy/data/
+Ntfy/bootstrap/
 UbuntuDesktop/Glances/config/
 UbuntuDesktop/Scrypted/volume/
 

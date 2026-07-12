@@ -80,6 +80,16 @@
           password: "{{HOMEPAGE_FILE_NPM_PASSWORD}}"
           fields: ["enabled", "disabled", "total"]
 
+    - ntfy:
+        icon: ntfy
+        description: Private homelab push notifications
+        href: https://ntfy.abhighosh.co.uk
+        target: _self
+        siteMonitor: http://ntfy:80/v1/health
+        server: local-docker
+        container: ntfy
+        showStats: true
+
 - Applications:
     - Scrypted:
         icon: scrypted

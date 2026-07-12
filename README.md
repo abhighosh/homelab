@@ -9,6 +9,7 @@ Compose definitions and non-secret configuration for the self-hosted services on
 - Glances on ubuntu-desktop
 - Komodo with MongoDB and Periphery
 - Nginx Proxy Manager
+- ntfy
 - Omada Controller
 - Uptime Kuma
 

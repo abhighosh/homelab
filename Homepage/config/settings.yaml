@@ -14,7 +14,7 @@ disableIndexing: true
 layout:
   Status & Control:
     style: row
-    columns: 5
+    columns: 6
     icon: mdi-server-network
   Applications:
     style: row

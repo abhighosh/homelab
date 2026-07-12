@@ -1,0 +1,19 @@
+# Public URL served by Nginx Proxy Manager over the Tailscale-only proxy.
+base-url: "https://ntfy.abhighosh.co.uk"
+behind-proxy: true
+
+# Persist recent messages so mobile clients can retrieve notifications missed
+# while disconnected. Authentication and access control are deny-by-default.
+cache-file: "/var/lib/ntfy/cache.db"
+cache-duration: "24h"
+auth-file: "/var/lib/ntfy/auth.db"
+auth-default-access: "deny-all"
+enable-login: true
+enable-signup: false
+
+# The iOS app needs the public ntfy service to forward an APNS/FCM wake-up.
+# Notification messages and the authoritative message cache remain here.
+upstream-base-url: "https://ntfy.sh"
+
+# Infrastructure alerts do not need file uploads. Leaving the attachment cache
+# unset disables attachments and avoids unnecessary storage and attack surface.
