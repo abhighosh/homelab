@@ -5,8 +5,10 @@ cameras and the Nest stream supplied by Starling Home Hub.
 
 ## Design
 
-- Each Tapo supplies `stream1` to the recorder and live view, and `stream2` to
-  motion/object detection.
+- Each Tapo supplies one `stream1` connection for recording, live view and
+  detection. Frigate copies the original stream to disk while NVIDIA NVDEC
+  resizes detection frames to 720p. This avoids exhausting the cameras' stream
+  capacity alongside Tapo Care and HomeKit.
 - Frigate's bundled go2rtc owns those RTSP connections and restreams them
   internally, avoiding duplicate connections from Frigate components.
 - The Nest camera initially has one additional consumer from Frigate. After the
