@@ -19,8 +19,9 @@ cameras and the Nest stream supplied by Starling Home Hub.
 - Object detection, motion processing, event snapshots and Birdseye are
   deliberately disabled because Tapo Care and HomeKit Secure Video already
   provide detections. Frigate is not given access to the NVIDIA GPU. It uses
-  CPU decoding at one frame per second only for the camera/API state that
-  Frigate requires, leaving the RTX 3080 available to games and able to idle.
+  CPU decoding at 640x360 and one frame per second only for the camera/API
+  state that Frigate requires, leaving the RTX 3080 available to games and able
+  to idle. Recordings and go2rtc live streams retain their original resolution.
 - Port `8971` is the authenticated TLS UI/API. The unauthenticated port `5000`
   is deliberately not published. The UI is bound to both the LAN and Tailscale
   addresses so local integrations can use the LAN while Nginx Proxy Manager

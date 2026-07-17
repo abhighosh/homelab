@@ -43,8 +43,10 @@ detect:
   # Frigate still decodes a small number of frames for camera/API state even
   # when detection is disabled. One frame per second keeps that CPU cost low.
   fps: 1
-  width: 1280
-  height: 720
+  # This only controls Frigate's internal/API frame. Recordings and go2rtc
+  # live streams retain the cameras' original resolution.
+  width: 640
+  height: 360
 
 motion:
   enabled: false
