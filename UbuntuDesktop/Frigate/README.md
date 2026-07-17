@@ -20,7 +20,9 @@ cameras and the Nest stream supplied by Starling Home Hub.
 - NVIDIA NVDEC handles video decoding. The supported ONNX detector runs a
   YOLOv9-t model through the TensorRT execution provider on the RTX 3080.
 - Port `8971` is the authenticated TLS UI/API. The unauthenticated port `5000`
-  is deliberately not published.
+  is deliberately not published. The UI is bound to both the LAN and Tailscale
+  addresses so local integrations can use the LAN while Nginx Proxy Manager
+  routes to Ubuntu over Tailscale. RTSP and WebRTC remain LAN-only.
 
 ## Host paths
 

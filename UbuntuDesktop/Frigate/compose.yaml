@@ -26,6 +26,7 @@ services:
           size: 1000000000
     ports:
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8971:8971"
+      - "${FRIGATE_TAILSCALE_IP:-100.118.235.83}:8971:8971"
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8554:8554"
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8555:8555/tcp"
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8555:8555/udp"
