@@ -8,6 +8,7 @@ tooling for the Pi and `ubuntu-desktop`.
 - AdGuard Home
 - Homepage
 - Glances on ubuntu-desktop
+- Frigate on ubuntu-desktop
 - Home Assistant
 - Komodo with MongoDB and Periphery
 - Nginx Proxy Manager
@@ -21,6 +22,9 @@ Each service is kept in its own directory. Run Compose commands from that direct
 
 - `UbuntuDesktop/Gaming` contains the declarative Steam autostart setup for the
   restricted TV gaming account.
+- `UbuntuDesktop/Frigate` contains the Git-backed NVR definition. Its database,
+  model cache, credentials and recordings remain outside the repository on
+  stable host paths.
 - `EmuDeckSync` documents and rebuilds the LAN-only Syncthing integration
   between the Steam Deck and Ubuntu EmuDeck installations. Its scripts are
   recovery and maintenance tools; the live synchronization does not depend on

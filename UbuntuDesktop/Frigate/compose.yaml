@@ -1,0 +1,65 @@
+services:
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable-tensorrt
+    container_name: frigate
+    restart: unless-stopped
+    stop_grace_period: 30s
+    shm_size: "512mb"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      TZ: Europe/London
+      YOLO_MODELS: yolov7-320
+      USE_FP16: "true"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${FRIGATE_DATA_PATH:-/home/abhi/Docker/Frigate/data}:/config
+      - ./config/config.yml:/config/config.yml:ro
+      - ${FRIGATE_MEDIA_PATH:-/srv/frigate}:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "${FRIGATE_BIND_IP:-192.168.0.180}:8971:8971"
+      - "${FRIGATE_BIND_IP:-192.168.0.180}:8554:8554"
+      - "${FRIGATE_BIND_IP:-192.168.0.180}:8555:8555/tcp"
+      - "${FRIGATE_BIND_IP:-192.168.0.180}:8555:8555/udp"
+    secrets:
+      - source: tapo_rtsp_user
+        target: FRIGATE_TAPO_USER
+      - source: tapo_rtsp_password
+        target: FRIGATE_TAPO_PASSWORD
+      - source: nest_rtsp_url
+        target: FRIGATE_NEST_RTSP_URL
+      - source: go2rtc_user
+        target: FRIGATE_GO2RTC_USER
+      - source: go2rtc_password
+        target: FRIGATE_GO2RTC_PASSWORD
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/version', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+
+secrets:
+  tapo_rtsp_user:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_user
+  tapo_rtsp_password:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_password
+  nest_rtsp_url:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/nest_rtsp_url
+  go2rtc_user:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_user
+  go2rtc_password:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_password

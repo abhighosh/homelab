@@ -18,6 +18,9 @@ Ntfy/bootstrap/
 HomeAssistant/config/
 UbuntuDesktop/Glances/config/
 UbuntuDesktop/Scrypted/volume/
+UbuntuDesktop/Frigate/data/
+UbuntuDesktop/Frigate/secrets/
+/Frigate/
 
 # Logs, databases, backups, and certificates
 **/logs/

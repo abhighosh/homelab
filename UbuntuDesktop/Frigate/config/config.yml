@@ -1,0 +1,161 @@
+mqtt:
+  enabled: false
+
+tls:
+  enabled: true
+
+auth:
+  enabled: true
+  cookie_secure: true
+
+ffmpeg:
+  hwaccel_args: preset-nvidia
+  retry_interval: 10
+
+detectors:
+  tensorrt:
+    type: tensorrt
+    device: 0
+
+model:
+  path: /config/model_cache/tensorrt/yolov7-320.trt
+  labelmap_path: /labelmap/coco-80.txt
+  input_tensor: nchw
+  input_pixel_format: rgb
+  width: 320
+  height: 320
+
+go2rtc:
+  rtsp:
+    username: "{FRIGATE_GO2RTC_USER}"
+    password: "{FRIGATE_GO2RTC_PASSWORD}"
+  streams:
+    garage:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream1#backchannel=0"
+    garage_sub:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream2#backchannel=0"
+    living_room_side:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream1#backchannel=0"
+    living_room_side_sub:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream2#backchannel=0"
+    kitchen:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream1#backchannel=0"
+    kitchen_sub:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream2#backchannel=0"
+    living_room_back:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.207:554/stream1#backchannel=0"
+    living_room_back_sub:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.207:554/stream2#backchannel=0"
+    snug:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream1#backchannel=0"
+    snug_sub:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream2#backchannel=0"
+    nest:
+      - "{FRIGATE_NEST_RTSP_URL}"
+
+detect:
+  enabled: true
+  fps: 5
+
+objects:
+  track:
+    - person
+    - car
+    - cat
+    - dog
+
+record:
+  enabled: true
+  sync_recordings: true
+  continuous:
+    days: 14
+  alerts:
+    retain:
+      days: 30
+      mode: all
+  detections:
+    retain:
+      days: 30
+      mode: all
+
+snapshots:
+  enabled: true
+  timestamp: true
+  bounding_box: true
+  retain:
+    default: 30
+
+birdseye:
+  enabled: true
+  mode: objects
+  restream: false
+
+cameras:
+  garage:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/garage
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/garage_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    ui:
+      order: 0
+
+  living_room_side:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/living_room_side
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/living_room_side_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    ui:
+      order: 1
+
+  kitchen:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/kitchen
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/kitchen_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    ui:
+      order: 2
+
+  living_room_back:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/living_room_back
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/living_room_back_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    ui:
+      order: 3
+
+  snug:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/snug
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/snug_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    ui:
+      order: 4
+
+  nest:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/nest
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 5
