@@ -17,21 +17,7 @@ auth:
   cookie_secure: true
 
 ffmpeg:
-  hwaccel_args: preset-nvidia
   retry_interval: 10
-
-detectors:
-  onnx:
-    type: onnx
-
-model:
-  model_type: yolo-generic
-  path: /config/model_cache/yolov9-t-320.onnx
-  labelmap_path: /labelmap/coco-80.txt
-  input_tensor: nchw
-  input_dtype: float
-  width: 320
-  height: 320
 
 go2rtc:
   rtsp:
@@ -53,42 +39,27 @@ go2rtc:
       - "{FRIGATE_NEST_RTSP_URL}"
 
 detect:
-  enabled: true
-  fps: 5
+  enabled: false
+  # Frigate still decodes a small number of frames for camera/API state even
+  # when detection is disabled. One frame per second keeps that CPU cost low.
+  fps: 1
   width: 1280
   height: 720
 
-objects:
-  track:
-    - person
-    - car
-    - cat
-    - dog
+motion:
+  enabled: false
 
 record:
   enabled: true
   sync_recordings: true
   continuous:
     days: 14
-  alerts:
-    retain:
-      days: 30
-      mode: all
-  detections:
-    retain:
-      days: 30
-      mode: all
 
 snapshots:
-  enabled: true
-  timestamp: true
-  bounding_box: true
-  retain:
-    default: 30
+  enabled: false
 
 birdseye:
-  enabled: true
-  mode: objects
+  enabled: false
   restream: false
 
 cameras:

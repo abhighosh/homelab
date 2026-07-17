@@ -6,19 +6,21 @@ cameras and the Nest stream supplied by Starling Home Hub.
 ## Design
 
 - Each Tapo supplies one `stream1` connection for recording, live view and
-  detection. Frigate copies the original stream to disk while NVIDIA NVDEC
-  resizes detection frames to 720p. This avoids exhausting the cameras' stream
-  capacity alongside Tapo Care and HomeKit.
+  the low-rate camera/API frame. Frigate copies the original stream to disk.
+  This avoids exhausting the cameras' stream capacity alongside Tapo Care and
+  HomeKit.
 - Frigate's bundled go2rtc owns those RTSP connections and restreams them
   internally, avoiding duplicate connections from Frigate components.
 - The Nest camera initially has one additional consumer from Frigate. After the
   feed is proven stable, Scrypted can consume Frigate's authenticated
   `rtsp://192.168.0.180:8554/nest` restream instead of connecting to Starling
   directly.
-- Recordings are retained continuously for 14 days. Alert and detection footage
-  is retained for 30 days.
-- NVIDIA NVDEC handles video decoding. The supported ONNX detector runs a
-  YOLOv9-t model through the TensorRT execution provider on the RTX 3080.
+- Recordings are retained continuously for 14 days.
+- Object detection, motion processing, event snapshots and Birdseye are
+  deliberately disabled because Tapo Care and HomeKit Secure Video already
+  provide detections. Frigate is not given access to the NVIDIA GPU. It uses
+  CPU decoding at one frame per second only for the camera/API state that
+  Frigate requires, leaving the RTX 3080 available to games and able to idle.
 - Port `8971` is the authenticated TLS UI/API. The unauthenticated port `5000`
   is deliberately not published. The UI is bound to both the LAN and Tailscale
   addresses so local integrations can use the LAN while Nginx Proxy Manager
@@ -29,7 +31,6 @@ cameras and the Nest stream supplied by Starling Home Hub.
 Runtime data is deliberately outside Komodo's disposable Git checkout:
 
 - `/home/abhi/Docker/Frigate/data` - database, generated certificates and model cache
-- `/home/abhi/Docker/Frigate/models` - immutable ONNX object-detection model
 - `/home/abhi/Docker/Frigate/secrets` - camera and restream credentials
 - `/srv/frigate` - dedicated surveillance disk mount and recordings
 
@@ -75,11 +76,11 @@ python3 -c 'import getpass, urllib.parse; print(urllib.parse.quote(getpass.getpa
 5. Validate with `docker compose --env-file .env config` from this directory.
 6. Add a Git-backed Komodo stack using `UbuntuDesktop/Frigate/compose.yaml` and
    deploy it to `ubuntu-desktop`.
-7. Install the YOLOv9-t ONNX model at
-   `/home/abhi/Docker/Frigate/models/yolov9-t-320.onnx`.
-8. Read the generated initial admin password with `docker logs frigate`.
-9. Verify every live feed, NVDEC/TensorRT use, recording playback and disk
-   growth before changing Scrypted or adding Home Assistant.
+7. Read the generated initial admin password with `docker logs frigate`.
+8. Verify every live feed, recording playback and disk growth before changing
+   Scrypted or adding Home Assistant. Confirm that Frigate has no process in
+   `nvidia-smi`; monitor CPU use after deployment because Frigate must still
+   decode a low-rate frame for each camera.
 
 Frigate connects to the LAN-only Mosquitto broker on the Pi with a dedicated
 account restricted to `frigate/#`. Home Assistant must use the same broker for
