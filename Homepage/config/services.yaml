@@ -91,6 +91,20 @@
         showStats: true
 
 - Applications:
+    - Frigate:
+        icon: frigate
+        description: Camera recording and object detection
+        href: https://frigate.abhighosh.co.uk
+        target: _self
+        siteMonitor: https://frigate.abhighosh.co.uk
+        widget:
+          type: frigate
+          url: https://frigate.abhighosh.co.uk
+          enableRecentEvents: true
+          username: "{{HOMEPAGE_FILE_FRIGATE_USERNAME}}"
+          password: "{{HOMEPAGE_FILE_FRIGATE_PASSWORD}}"
+          fields: ["cameras", "uptime", "version"]
+
     - Home Assistant:
         icon: home-assistant
         description: Home automation and household control

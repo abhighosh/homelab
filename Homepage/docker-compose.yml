@@ -74,6 +74,8 @@ services:
       HOMEPAGE_FILE_KOMODO_SECRET: /run/secrets/komodo_secret
       HOMEPAGE_FILE_GLANCES_USERNAME: /run/secrets/glances_username
       HOMEPAGE_FILE_GLANCES_PASSWORD: /run/secrets/glances_password
+      HOMEPAGE_FILE_FRIGATE_USERNAME: /run/secrets/frigate_username
+      HOMEPAGE_FILE_FRIGATE_PASSWORD: /run/secrets/frigate_password
     secrets:
       - adguard_username
       - adguard_password
@@ -86,6 +88,8 @@ services:
       - komodo_secret
       - glances_username
       - glances_password
+      - frigate_username
+      - frigate_password
     networks:
       proxy:
         aliases:
@@ -125,3 +129,7 @@ secrets:
     file: ./secrets/glances_username
   glances_password:
     file: ./secrets/glances_password
+  frigate_username:
+    file: ./secrets/frigate_username
+  frigate_password:
+    file: ./secrets/frigate_password

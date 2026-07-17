@@ -48,6 +48,8 @@ Docker API proxy.
 Service-widget credentials are mounted from ignored files under
 `Homepage/secrets/` and referenced through `HOMEPAGE_FILE_*` substitutions; no
 credential values belong in tracked YAML.
+The Frigate widget uses a dedicated `homepage` user with Frigate's read-only
+`viewer` role; it never receives the Frigate administrator password.
 The Komodo widget uses a non-expiring API key owned by the dedicated `homepage`
 service user. That user has only `Read` base permission on Server and Stack
 resources; revoke and replace the key if the Homepage host is compromised.
