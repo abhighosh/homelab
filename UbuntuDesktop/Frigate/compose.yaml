@@ -14,12 +14,11 @@ services:
               capabilities: [gpu]
     environment:
       TZ: Europe/London
-      YOLO_MODELS: yolov7-320
-      USE_FP16: "true"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${FRIGATE_DATA_PATH:-/home/abhi/Docker/Frigate/data}:/config
       - ./config/config.yml:/config/config.yml:ro
+      - ${FRIGATE_MODEL_PATH:-/home/abhi/Docker/Frigate/models/yolov9-t-320.onnx}:/config/model_cache/yolov9-t-320.onnx:ro
       - ${FRIGATE_MEDIA_PATH:-/srv/frigate}:/media/frigate
       - type: tmpfs
         target: /tmp/cache

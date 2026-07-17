@@ -15,7 +15,8 @@ cameras and the Nest stream supplied by Starling Home Hub.
   directly.
 - Recordings are retained continuously for 14 days. Alert and detection footage
   is retained for 30 days.
-- NVIDIA NVDEC handles video decoding and TensorRT handles object detection.
+- NVIDIA NVDEC handles video decoding. The supported ONNX detector runs a
+  YOLOv9-t model through the TensorRT execution provider on the RTX 3080.
 - Port `8971` is the authenticated TLS UI/API. The unauthenticated port `5000`
   is deliberately not published.
 
@@ -24,6 +25,7 @@ cameras and the Nest stream supplied by Starling Home Hub.
 Runtime data is deliberately outside Komodo's disposable Git checkout:
 
 - `/home/abhi/Docker/Frigate/data` - database, generated certificates and model cache
+- `/home/abhi/Docker/Frigate/models` - immutable ONNX object-detection model
 - `/home/abhi/Docker/Frigate/secrets` - camera and restream credentials
 - `/srv/frigate` - dedicated surveillance disk mount and recordings
 
@@ -66,9 +68,10 @@ python3 -c 'import getpass, urllib.parse; print(urllib.parse.quote(getpass.getpa
 5. Validate with `docker compose --env-file .env config` from this directory.
 6. Add a Git-backed Komodo stack using `UbuntuDesktop/Frigate/compose.yaml` and
    deploy it to `ubuntu-desktop`.
-7. The first start builds the TensorRT model and can take several minutes. Read
-   the generated initial admin password with `docker logs frigate`.
-8. Verify every live feed, NVDEC/TensorRT use, recording playback and disk
+7. Install the YOLOv9-t ONNX model at
+   `/home/abhi/Docker/Frigate/models/yolov9-t-320.onnx`.
+8. Read the generated initial admin password with `docker logs frigate`.
+9. Verify every live feed, NVDEC/TensorRT use, recording playback and disk
    growth before changing Scrypted or adding Home Assistant.
 
 MQTT is intentionally disabled for the first deployment. It will be added with
