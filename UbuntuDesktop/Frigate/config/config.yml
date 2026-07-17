@@ -35,7 +35,8 @@ go2rtc:
     garage:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream1#backchannel=0"
     living_room_side:
-      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream1#backchannel=0"
+      # FFmpeg remuxes this camera's glitchy RTSP output without transcoding.
+      - "ffmpeg:rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream1#video=copy#audio=copy"
     kitchen:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream1#backchannel=0"
     living_room_back:
