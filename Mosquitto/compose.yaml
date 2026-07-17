@@ -1,0 +1,39 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    container_name: mosquitto
+    restart: unless-stopped
+    init: true
+    entrypoint:
+      - /bin/sh
+      - /usr/local/bin/bootstrap-mosquitto
+    environment:
+      TZ: Europe/London
+    ports:
+      # MQTT is intentionally LAN-only. It is neither public nor exposed over
+      # Tailscale; Frigate and Home Assistant are both local LAN clients.
+      - "${MOSQUITTO_BIND_IP:-192.168.0.220}:1883:1883"
+    volumes:
+      - ./bootstrap-container.sh:/usr/local/bin/bootstrap-mosquitto:ro
+      - ./config:/config-source:ro
+      - ${MOSQUITTO_DATA_PATH:-/home/abhi/Docker/Mosquitto/data}:/mosquitto/data
+    secrets:
+      - mosquitto_passwords
+      - mosquitto_health_password
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mosquitto_sub -h 127.0.0.1 -p 1883
+          -u healthcheck -P "$$(cat /run/secrets/mosquitto_health_password)"
+          -t '$$SYS/broker/uptime' -C 1 -W 5 >/dev/null
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+secrets:
+  mosquitto_passwords:
+    file: ${MOSQUITTO_SECRETS_PATH:-/home/abhi/Docker/Mosquitto/secrets}/passwords
+  mosquitto_health_password:
+    file: ${MOSQUITTO_SECRETS_PATH:-/home/abhi/Docker/Mosquitto/secrets}/healthcheck_password

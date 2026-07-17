@@ -41,6 +41,8 @@ services:
         target: FRIGATE_GO2RTC_USER
       - source: go2rtc_password
         target: FRIGATE_GO2RTC_PASSWORD
+      - source: mqtt_password
+        target: FRIGATE_MQTT_PASSWORD
     healthcheck:
       test:
         - CMD
@@ -63,3 +65,5 @@ secrets:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_user
   go2rtc_password:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_password
+  mqtt_password:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/mqtt_password

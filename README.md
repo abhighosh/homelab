@@ -11,6 +11,7 @@ tooling for the Pi and `ubuntu-desktop`.
 - Frigate on ubuntu-desktop
 - Home Assistant
 - Komodo with MongoDB and Periphery
+- Mosquitto MQTT broker
 - Nginx Proxy Manager
 - ntfy
 - Omada Controller
@@ -124,6 +125,12 @@ Home Assistant follows the same pattern: its Git-backed Compose definition is
 tracked under `HomeAssistant/`, while runtime configuration is kept at
 `/home/abhi/Docker/HomeAssistant/config` by default. Override
 `HOME_ASSISTANT_CONFIG_PATH` in the Stack environment if the host path changes.
+
+Mosquitto is the LAN-only, authenticated MQTT broker shared by Frigate and Home
+Assistant. Its Git-backed definition and ACL are tracked under `Mosquitto/`,
+while its password database, client credentials and persistence data remain
+ignored under `/home/abhi/Docker/Mosquitto/`. Run
+`Mosquitto/bootstrap-secrets.sh` on the Pi before its first deployment.
 
 Before committing, use `git status --short --ignored` to confirm that no sensitive or generated files are being added.
 

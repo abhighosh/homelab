@@ -21,6 +21,8 @@ UbuntuDesktop/Scrypted/volume/
 UbuntuDesktop/Frigate/data/
 UbuntuDesktop/Frigate/secrets/
 /Frigate/
+Mosquitto/data/
+Mosquitto/secrets/
 
 # Logs, databases, backups, and certificates
 **/logs/

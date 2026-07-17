@@ -1,0 +1,11 @@
+# Frigate publishes state and accepts control messages below its own prefix.
+user frigate
+topic readwrite frigate/#
+
+# Home Assistant is the automation hub and may later host other MQTT devices.
+user homeassistant
+topic readwrite #
+
+# The container health check only needs a broker-owned status topic.
+user healthcheck
+topic read $SYS/broker/uptime
