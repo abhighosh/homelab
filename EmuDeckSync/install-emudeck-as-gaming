@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -un)" != gaming ]]; then
+    echo "Run this script from the gaming desktop as the gaming user." >&2
+    exit 1
+fi
+
+api=https://api.github.com/repos/EmuDeck/emudeck-electron/releases/latest
+applications="$HOME/Applications"
+destination="$applications/EmuDeck.AppImage"
+
+url="$(
+    curl -fsSL "$api" \
+        | jq -er '[.assets[] | select(.name | endswith(".AppImage"))][0].browser_download_url'
+)"
+case "$url" in
+    https://github.com/EmuDeck/emudeck-electron/releases/download/*/*.AppImage) ;;
+    *)
+        echo "Refusing an unexpected EmuDeck download URL: $url" >&2
+        exit 1
+        ;;
+esac
+
+install -d -m 0755 "$applications"
+temporary="$(mktemp "$applications/.EmuDeck.AppImage.XXXXXX")"
+trap 'rm -f "$temporary"' EXIT
+
+curl -fL --retry 3 --retry-delay 2 "$url" -o "$temporary"
+chmod 0755 "$temporary"
+mv -f "$temporary" "$destination"
+trap - EXIT
+
+exec "$destination" --no-sandbox
+

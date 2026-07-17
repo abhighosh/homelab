@@ -1,6 +1,7 @@
-# Docker services
+# Homelab infrastructure
 
-Compose definitions and non-secret configuration for the self-hosted services on this machine.
+Compose definitions, non-secret service configuration, and reproducible host
+tooling for the Pi and `ubuntu-desktop`.
 
 ## Services
 
@@ -15,6 +16,15 @@ Compose definitions and non-secret configuration for the self-hosted services on
 - Uptime Kuma
 
 Each service is kept in its own directory. Run Compose commands from that directory so relative bind mounts resolve correctly.
+
+## Host tooling
+
+- `UbuntuDesktop/Gaming` contains the declarative Steam autostart setup for the
+  restricted TV gaming account.
+- `EmuDeckSync` documents and rebuilds the LAN-only Syncthing integration
+  between the Steam Deck and Ubuntu EmuDeck installations. Its scripts are
+  recovery and maintenance tools; the live synchronization does not depend on
+  the repository checkout.
 
 Services with configurable local time use the `Europe/London` IANA time zone so
 scheduled tasks and timestamps consistently follow the host, including daylight

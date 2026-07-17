@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if (( EUID != 0 )); then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+
+ssd_uuid=0bab2145-d970-4175-8dcc-bb9f367c10a7
+ssd_mount="/mnt/$ssd_uuid"
+emulation="$ssd_mount/Emulation"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+actual_ssd_uuid="$(findmnt -no UUID "$ssd_mount")"
+if [[ "$actual_ssd_uuid" != "$ssd_uuid" ]]; then
+    echo "Refusing to run: SSD2 is not mounted at $ssd_mount." >&2
+    exit 1
+fi
+
+install -d -m 0755 /etc/apt/keyrings
+curl -fsSL -o /etc/apt/keyrings/syncthing-archive-keyring.gpg \
+    https://syncthing.net/release-key.gpg
+install -m 0644 "$script_dir/assets/syncthing.list" \
+    /etc/apt/sources.list.d/syncthing.list
+install -m 0644 "$script_dir/assets/syncthing.pref" \
+    /etc/apt/preferences.d/syncthing.pref
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    bash ca-certificates flatpak git jq libfuse2 rsync syncthing unzip zenity
+
+install -d -m 0750 -o gaming -g gaming "$emulation"
+for directory in bios hdpacks roms saves storage texturepacks updates; do
+    install -d -m 0750 -o gaming -g gaming "$emulation/$directory"
+done
+
+if [[ -e /home/gaming/Emulation && ! -L /home/gaming/Emulation ]]; then
+    echo "/home/gaming/Emulation already exists and is not a symlink." >&2
+    exit 1
+fi
+ln -sfn "$emulation" /home/gaming/Emulation
+chown -h gaming:gaming /home/gaming/Emulation
+
+install -d -m 0755 /etc/systemd/system/syncthing@gaming.service.d
+install -m 0644 "$script_dir/assets/syncthing-ubuntu-ssd2.conf" \
+    /etc/systemd/system/syncthing@gaming.service.d/ssd2.conf
+
+if systemctl is-active --quiet ufw; then
+    ufw allow from 192.168.0.0/24 to any port 22000 proto tcp comment 'Syncthing LAN TCP'
+    ufw allow from 192.168.0.0/24 to any port 22000 proto udp comment 'Syncthing LAN QUIC'
+    ufw allow from 192.168.0.0/24 to any port 21027 proto udp comment 'Syncthing LAN discovery'
+fi
+
+systemctl daemon-reload
+systemctl enable --now syncthing@gaming.service
+
+for _ in {1..30}; do
+    [[ -f /home/gaming/.local/state/syncthing/cert.pem ]] && break
+    sleep 1
+done
+if [[ ! -f /home/gaming/.local/state/syncthing/cert.pem ]]; then
+    echo "Syncthing started but did not create its device certificate within 30 seconds." >&2
+    exit 1
+fi
+
+echo
+echo "Ubuntu Syncthing host is configured."
+echo "SSD2 target: $emulation"
+echo "Service: syncthing@gaming.service"
+echo "GUI: http://127.0.0.1:8384 (use an SSH tunnel for remote access)"
+echo "Device ID:"
+runuser -u gaming -- syncthing device-id

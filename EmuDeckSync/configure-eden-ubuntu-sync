@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if (( EUID != 0 )); then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+if (( $# != 1 )); then
+    echo "Usage: $0 STEAM_DECK_DEVICE_ID" >&2
+    exit 1
+fi
+
+remote_id=$1
+syncthing=/usr/bin/syncthing
+home=/home/gaming
+root="$home/Emulation"
+config="$home/.config/eden/qt-config.ini"
+timestamp="$(date +%Y%m%d-%H%M%S)"
+backup="$root/backups/pre-eden-sync-$timestamp"
+
+as_gaming() {
+    runuser -u gaming -- "$syncthing" "$@"
+}
+
+systemctl is-active --quiet syncthing@gaming.service
+[[ -x "$home/Applications/Eden.AppImage" ]] || {
+    echo "Eden.AppImage is not installed for gaming." >&2
+    exit 1
+}
+[[ -f "$config" ]] || {
+    echo "Eden has not been configured by EmuDeck. Run Reset Configuration first." >&2
+    exit 1
+}
+grep -Fxq "nand_directory=$root/storage/eden/nand" "$config" || {
+    echo "Eden's active NAND path is not the expected SSD2 EmuDeck path." >&2
+    exit 1
+}
+
+keys="$home/.local/share/eden/keys"
+firmware="$root/storage/eden/nand/system/Contents/registered"
+saves="$root/storage/eden/nand/user/save"
+profiles="$root/storage/eden/nand/system/save/8000000000000010/su/avators"
+
+for path in "$keys" "$firmware" "$saves" "$profiles"; do
+    install -d -m 0750 -o gaming -g gaming "$path"
+done
+
+backup_path() {
+    local label=$1 path=$2
+    if [[ -n "$(find "$path" -mindepth 1 -print -quit)" ]]; then
+        install -d -m 0750 -o gaming -g gaming "$backup"
+        cp -a --reflink=auto "$path" "$backup/$label"
+    fi
+}
+backup_path keys "$keys"
+backup_path firmware "$firmware"
+backup_path saves "$saves"
+backup_path profiles "$profiles"
+if [[ -d "$backup" ]]; then
+    chown -R gaming:gaming "$backup"
+    echo "Existing Ubuntu Eden data backed up to $backup"
+fi
+
+bios="$root/bios/eden"
+install -d -m 0750 -o gaming -g gaming "$bios"
+set_link() {
+    local link=$1 target=$2
+    if [[ -e "$link" && ! -L "$link" ]]; then
+        echo "Refusing to replace non-symlink BIOS path: $link" >&2
+        exit 1
+    fi
+    ln -sfn "$target" "$link"
+    chown -h gaming:gaming "$link"
+}
+set_link "$bios/keys" "$keys"
+set_link "$bios/firmware" "$firmware"
+
+local_id="$(as_gaming device-id)"
+if ! as_gaming cli config devices list | grep -Fxq "$remote_id"; then
+    echo "Steam Deck is not configured as a Syncthing device." >&2
+    exit 1
+fi
+
+add_folder() {
+    local id=$1 label=$2 path=$3 versioned=$4
+    if as_gaming cli config folders list | grep -Fxq "$id"; then
+        return
+    fi
+    if [[ "$versioned" == true ]]; then
+        versioning='{"type":"staggered","params":{"maxAge":"31536000"},"cleanupIntervalS":3600,"fsPath":"","fsType":"basic"}'
+    else
+        versioning='{"type":"simple","params":{"keep":"3"},"cleanupIntervalS":3600,"fsPath":"","fsType":"basic"}'
+    fi
+    folder_json="$(jq -nc \
+        --arg id "$id" --arg label "$label" --arg path "$path" \
+        --arg local_id "$local_id" --arg remote_id "$remote_id" \
+        --argjson versioning "$versioning" \
+        '{id:$id,label:$label,path:$path,type:"receiveonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:5,ignorePerms:true,minDiskFree:{value:5,unit:"%"},versioning:$versioning}')"
+    as_gaming cli config folders add-json "$folder_json"
+}
+
+add_folder eden-keys "Eden Keys" "$keys" false
+add_folder eden-firmware "Eden Firmware" "$firmware" false
+add_folder eden-saves "Eden Saves" "$saves" true
+add_folder eden-profiles "Eden Profiles" "$profiles" true
+
+echo "Ubuntu Eden data is configured as the protected receive-only target."
+echo "After validation, both hosts will be changed to send-and-receive."
+

@@ -1,0 +1,5 @@
+// Cemu and Xenia store saves below their ROM trees. These paths are shared as
+// separate, versioned save folders after EmuDeck is installed on both hosts.
+/wiiu/mlc01/usr/save
+/xbox360/content
+

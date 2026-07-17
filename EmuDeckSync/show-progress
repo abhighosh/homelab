@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+syncthing=${SYNCTHING:-$HOME/.local/bin/syncthing}
+if [[ ! -x "$syncthing" ]]; then
+    syncthing="$(command -v syncthing)"
+fi
+
+local_id="$($syncthing device-id)"
+remote_id="$($syncthing cli config devices list | grep -Fvx "$local_id" | head -n 1)"
+if [[ -z "$remote_id" ]]; then
+    echo "No remote Syncthing device is configured." >&2
+    exit 1
+fi
+
+api_key="$($syncthing cli config gui apikey get)"
+connection="$($syncthing cli show connections)"
+
+printf '%-24s %10s %14s %12s\n' FOLDER COMPLETE REMAINING ITEMS_LEFT
+for folder in $($syncthing cli config folders list); do
+    result="$(curl -fsS \
+        -H "X-API-Key: $api_key" \
+        "http://127.0.0.1:8384/rest/db/completion?device=$remote_id&folder=$folder")"
+    IFS=$'\t' read -r name completion remaining items < <(
+        jq -r --arg folder "$folder" \
+            '[
+                $folder,
+                ((.completion * 100 | round) / 100 | tostring) + "%",
+                (((.needBytes / 1073741824) * 100 | round) / 100 | tostring) + " GiB",
+                (.needItems | tostring)
+            ] | @tsv' <<<"$result"
+    )
+    printf '%-24s %10s %14s %12s\n' \
+        "$name" "$completion" "$remaining" "$items"
+done
+
+echo
+jq -r --arg device "$remote_id" '
+    .connections[$device]
+    | "Connected: \(.connected) | LAN: \(.isLocal) | Peer: \(.address) | Session sent: \((.outBytesTotal / 1073741824 * 100 | round) / 100) GiB"
+' <<<"$connection"
+

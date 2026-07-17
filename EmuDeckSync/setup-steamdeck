@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -un)" != deck ]]; then
+    echo "Run this script as the deck user, without sudo." >&2
+    exit 1
+fi
+if [[ "$(uname -m)" != x86_64 ]]; then
+    echo "Refusing to run: expected x86_64 Steam Deck." >&2
+    exit 1
+fi
+
+# SteamOS is immutable, so Syncthing is installed in the deck user's home.
+# Keep the version and checksum paired and review them before rebuilding.
+readonly version=2.1.2
+readonly sha256=0cea24660ac7d8df19f01da979827b5c9463a8a60042e296829293cf80213ee4
+archive="syncthing-linux-amd64-v${version}.tar.gz"
+url="https://github.com/syncthing/syncthing/releases/download/v${version}/${archive}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+
+curl -fsSL -o "$workdir/$archive" "$url"
+echo "$sha256  $workdir/$archive" | sha256sum --check --status
+tar -xzf "$workdir/$archive" -C "$workdir"
+
+install -d -m 0755 "$HOME/.local/bin" "$HOME/.config/systemd/user"
+install -m 0755 \
+    "$workdir/syncthing-linux-amd64-v${version}/syncthing" \
+    "$HOME/.local/bin/syncthing"
+install -m 0644 "$script_dir/assets/syncthing-steamdeck.service" \
+    "$HOME/.config/systemd/user/syncthing.service"
+
+systemctl --user daemon-reload
+systemctl --user enable --now syncthing.service
+
+for _ in {1..30}; do
+    systemctl --user is-active --quiet syncthing.service \
+        && [[ -f "$HOME/.local/state/syncthing/cert.pem" ]] \
+        && break
+    sleep 1
+done
+systemctl --user is-active --quiet syncthing.service
+if [[ ! -f "$HOME/.local/state/syncthing/cert.pem" ]]; then
+    echo "Syncthing started but did not create its device certificate within 30 seconds." >&2
+    exit 1
+fi
+
+echo
+"$HOME/.local/bin/syncthing" --version
+echo "Steam Deck Syncthing is running."
+echo "GUI: http://127.0.0.1:8384"
+echo "Device ID:"
+"$HOME/.local/bin/syncthing" device-id

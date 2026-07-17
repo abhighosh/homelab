@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -un)" != gaming ]]; then
+    echo "Run this script from the gaming desktop as the gaming user." >&2
+    exit 1
+fi
+if [[ "$(uname -m)" != x86_64 ]] || ! grep -qw avx2 /proc/cpuinfo; then
+    echo "This installer requires an AVX2-capable x86_64 desktop." >&2
+    exit 1
+fi
+
+version=0.2.1
+base="https://stable.eden-emu.dev/v$version"
+asset="Eden-Linux-v$version-amd64-clang-pgo.AppImage"
+metadata="Eden-Linux-amd64-clang-pgo.AppImage.zsync"
+applications="$HOME/Applications"
+destination="$applications/Eden.AppImage"
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+
+curl -fL --retry 3 --retry-delay 2 "$base/$metadata" \
+    -o "$workdir/$metadata"
+curl -fL --retry 3 --retry-delay 2 "$base/$asset" \
+    -o "$workdir/$asset"
+
+expected_sha1="$(awk '/^SHA-1:/ {print $2; exit}' "$workdir/$metadata")"
+if [[ ! "$expected_sha1" =~ ^[[:xdigit:]]{40}$ ]]; then
+    echo "The official zsync metadata did not contain a valid SHA-1." >&2
+    exit 1
+fi
+actual_sha1="$(sha1sum "$workdir/$asset" | awk '{print $1}')"
+if [[ "$actual_sha1" != "$expected_sha1" ]]; then
+    echo "Eden AppImage checksum verification failed." >&2
+    exit 1
+fi
+
+install -d -m 0755 "$applications"
+install -m 0755 "$workdir/$asset" "$applications/.Eden.AppImage.new"
+mv -f "$applications/.Eden.AppImage.new" "$destination"
+
+echo "Installed Eden v$version to $destination"
+echo "In EmuDeck, open Manage Emulators > Eden and select Reset Configuration."
+

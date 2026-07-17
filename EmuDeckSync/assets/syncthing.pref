@@ -1,0 +1,4 @@
+Package: *
+Pin: origin apt.syncthing.net
+Pin-Priority: 990
+

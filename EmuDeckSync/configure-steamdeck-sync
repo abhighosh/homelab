@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -un)" != deck ]]; then
+    echo "Run this script as deck, without sudo." >&2
+    exit 1
+fi
+if (( $# != 1 )); then
+    echo "Usage: $0 UBUNTU_DEVICE_ID" >&2
+    exit 1
+fi
+
+remote_id=$1
+syncthing="$HOME/.local/bin/syncthing"
+root="$HOME/Emulation"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+local_id="$($syncthing device-id)"
+
+systemctl --user is-active --quiet syncthing.service
+install -m 0644 "$script_dir/assets/roms.stignore" "$root/roms/.stignore"
+
+if ! "$syncthing" cli config devices list | grep -Fxq "$remote_id"; then
+    device_json="$(jq -nc \
+        --arg id "$remote_id" \
+        '{deviceID:$id,name:"Ubuntu Desktop",addresses:["dynamic"],compression:"metadata",allowedNetworks:["192.168.0.0/24"]}')"
+    "$syncthing" cli config devices add-json "$device_json"
+fi
+
+add_folder() {
+    local id=$1 label=$2 path=$3
+    if "$syncthing" cli config folders list | grep -Fxq "$id"; then
+        return
+    fi
+    folder_json="$(jq -nc \
+        --arg id "$id" --arg label "$label" --arg path "$path" \
+        --arg local_id "$local_id" --arg remote_id "$remote_id" \
+        '{id:$id,label:$label,path:$path,type:"sendonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
+    "$syncthing" cli config folders add-json "$folder_json"
+}
+
+add_folder emudeck-roms "EmuDeck ROMs" "$root/roms"
+add_folder emudeck-updates "EmuDeck Updates" "$root/updates"
+add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks"
+add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks"
+
+"$syncthing" cli config options global-ann-enabled set false
+"$syncthing" cli config options relays-enabled set false
+"$syncthing" cli config options natenabled set false
+"$syncthing" cli config options local-ann-enabled set true
+"$syncthing" cli operations restart
+
+echo "Steam Deck is configured as the initial send-only source."

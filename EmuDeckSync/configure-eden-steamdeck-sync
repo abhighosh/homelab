@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -un)" != deck ]]; then
+    echo "Run this script as deck, without sudo." >&2
+    exit 1
+fi
+if (( $# != 1 )); then
+    echo "Usage: $0 UBUNTU_DEVICE_ID" >&2
+    exit 1
+fi
+
+remote_id=$1
+syncthing="$HOME/.local/bin/syncthing"
+local_id="$($syncthing device-id)"
+
+systemctl --user is-active --quiet syncthing.service
+if ! "$syncthing" cli config devices list | grep -Fxq "$remote_id"; then
+    echo "Ubuntu is not configured as a Syncthing device." >&2
+    exit 1
+fi
+
+add_folder() {
+    local id=$1 label=$2 path=$3
+    [[ -d "$path" ]] || {
+        echo "Missing Deck Eden path: $path" >&2
+        exit 1
+    }
+    if "$syncthing" cli config folders list | grep -Fxq "$id"; then
+        return
+    fi
+    folder_json="$(jq -nc \
+        --arg id "$id" --arg label "$label" --arg path "$path" \
+        --arg local_id "$local_id" --arg remote_id "$remote_id" \
+        '{id:$id,label:$label,path:$path,type:"sendonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:5,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
+    "$syncthing" cli config folders add-json "$folder_json"
+}
+
+add_folder eden-keys "Eden Keys" \
+    "$HOME/.local/share/eden/keys"
+add_folder eden-firmware "Eden Firmware" \
+    "$HOME/Emulation/storage/eden/nand/system/Contents/registered"
+add_folder eden-saves "Eden Saves" \
+    "$HOME/Emulation/storage/eden/nand/user/save"
+add_folder eden-profiles "Eden Profiles" \
+    "$HOME/Emulation/storage/eden/nand/system/save/8000000000000010/su/avators"
+
+echo "Deck Eden data is configured as the protected send-only source."
+

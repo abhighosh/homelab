@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -un)" != deck ]]; then
+    echo "Run this script as deck, without sudo." >&2
+    exit 1
+fi
+
+syncthing="$HOME/.local/bin/syncthing"
+folders=(
+    eden-saves eden-profiles
+    save-cemu save-vita3k save-azahar state-azahar save-citron profile-citron
+    save-dolphin-gc save-dolphin-wii state-dolphin save-duckstation save-melonds
+    save-mgba save-pcsx2 save-ppsspp state-ppsspp save-retroarch state-retroarch
+    save-rpcs3 trophy-rpcs3 save-ryujinx savemeta-ryujinx systemsave-ryujinx
+    save-scummvm save-shadps4 save-xenia
+)
+
+systemctl --user is-active --quiet syncthing.service
+for id in eden-saves eden-profiles; do
+    "$syncthing" cli config folders "$id" versioning type set staggered
+    "$syncthing" cli config folders "$id" versioning params set maxAge 31536000
+    "$syncthing" cli config folders "$id" versioning cleanup-intervals set 3600
+done
+for id in "${folders[@]}"; do
+    "$syncthing" cli config folders "$id" type set sendreceive
+    echo "Enabled two-way sync: $id"
+done

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if (( EUID != 0 )); then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+if (( $# != 1 )); then
+    echo "Usage: $0 STEAM_DECK_DEVICE_ID" >&2
+    exit 1
+fi
+
+remote_id=$1
+syncthing=/usr/bin/syncthing
+root=/home/gaming/Emulation
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+as_gaming() {
+    runuser -u gaming -- "$syncthing" "$@"
+}
+
+systemctl is-active --quiet syncthing@gaming.service
+local_id="$(as_gaming device-id)"
+install -m 0644 -o gaming -g gaming "$script_dir/assets/roms.stignore" "$root/roms/.stignore"
+
+if ! as_gaming cli config devices list | grep -Fxq "$remote_id"; then
+    device_json="$(jq -nc \
+        --arg id "$remote_id" \
+        '{deviceID:$id,name:"Steam Deck",addresses:["dynamic"],compression:"metadata",allowedNetworks:["192.168.0.0/24"]}')"
+    as_gaming cli config devices add-json "$device_json"
+fi
+
+add_folder() {
+    local id=$1 label=$2 path=$3
+    if as_gaming cli config folders list | grep -Fxq "$id"; then
+        return
+    fi
+    folder_json="$(jq -nc \
+        --arg id "$id" --arg label "$label" --arg path "$path" \
+        --arg local_id "$local_id" --arg remote_id "$remote_id" \
+        '{id:$id,label:$label,path:$path,type:"receiveonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
+    as_gaming cli config folders add-json "$folder_json"
+}
+
+add_folder emudeck-roms "EmuDeck ROMs" "$root/roms"
+add_folder emudeck-updates "EmuDeck Updates" "$root/updates"
+add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks"
+add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks"
+
+as_gaming cli config options global-ann-enabled set false
+as_gaming cli config options relays-enabled set false
+as_gaming cli config options natenabled set false
+as_gaming cli config options local-ann-enabled set true
+as_gaming cli operations restart
+
+echo "Ubuntu Desktop is configured as the initial receive-only target."

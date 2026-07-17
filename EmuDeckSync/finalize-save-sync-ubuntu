@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if (( EUID != 0 )); then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+
+syncthing=/usr/bin/syncthing
+root=/home/gaming/Emulation
+timestamp="$(date +%Y%m%d-%H%M%S)"
+backup="$root/backups/pre-two-way-sync-$timestamp"
+folders=(
+    eden-saves eden-profiles
+    save-cemu save-vita3k save-azahar state-azahar save-citron profile-citron
+    save-dolphin-gc save-dolphin-wii state-dolphin save-duckstation save-melonds
+    save-mgba save-pcsx2 save-ppsspp state-ppsspp save-retroarch state-retroarch
+    save-rpcs3 trophy-rpcs3 save-ryujinx savemeta-ryujinx systemsave-ryujinx
+    save-scummvm save-shadps4 save-xenia
+)
+
+systemctl is-active --quiet syncthing@gaming.service
+for id in "${folders[@]}"; do
+    path="$(runuser -u gaming -- "$syncthing" \
+        cli config folders "$id" path get)"
+    if [[ -n "$(find "$path" -mindepth 1 -print -quit)" ]]; then
+        install -d -m 0750 -o gaming -g gaming "$backup"
+        cp -a --reflink=auto "$path" "$backup/$id"
+    fi
+done
+if [[ -d "$backup" ]]; then
+    chown -R gaming:gaming "$backup"
+    echo "Pre-merge save backup: $backup"
+fi
+
+for id in "${folders[@]}"; do
+    runuser -u gaming -- "$syncthing" \
+        cli config folders "$id" type set sendreceive
+    echo "Enabled two-way sync: $id"
+done

@@ -8,7 +8,9 @@ services:
       TZ: Europe/London
       GLANCES_OPT: "-w --password -u homepage --disable-autodiscover"
     ports:
-      - "${TAILSCALE_IP:-100.118.235.83}:61208:61208"
+      # Do not bind directly to tailscale0: Docker may restore this container
+      # before Tailscale has assigned its address after a reboot.
+      - "61208:61208"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/os-release:/etc/os-release:ro

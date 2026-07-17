@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if (( EUID != 0 )); then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+if (( $# != 1 )); then
+    echo "Usage: $0 STEAM_DECK_DEVICE_ID" >&2
+    exit 1
+fi
+
+remote_id=$1
+syncthing=/usr/bin/syncthing
+home=/home/gaming
+root="$home/Emulation"
+timestamp="$(date +%Y%m%d-%H%M%S)"
+backup="$root/backups/pre-save-sync-$timestamp"
+
+as_gaming() {
+    runuser -u gaming -- "$syncthing" "$@"
+}
+
+systemctl is-active --quiet syncthing@gaming.service
+local_id="$(as_gaming device-id)"
+if ! as_gaming cli config devices list | grep -Fxq "$remote_id"; then
+    echo "Steam Deck is not configured as a Syncthing device." >&2
+    exit 1
+fi
+
+folders=(
+    "save-cemu|Cemu saves|$root/roms/wiiu/mlc01/usr/save"
+    "save-vita3k|Vita3K saves|$root/storage/Vita3K/ux0/user/00/savedata"
+    "save-azahar|Azahar saves|$root/storage/azahar/sdmc"
+    "state-azahar|Azahar save states|$home/.local/share/azahar-emu/states"
+    "save-citron|Citron saves|$root/storage/citron/nand/user/save"
+    "profile-citron|Citron profiles|$root/storage/citron/nand/system/save/8000000000000010/su/avators"
+    "save-dolphin-gc|Dolphin GameCube saves|$home/.var/app/org.DolphinEmu.dolphin-emu/data/dolphin-emu/GC"
+    "save-dolphin-wii|Dolphin Wii saves|$home/.var/app/org.DolphinEmu.dolphin-emu/data/dolphin-emu/Wii"
+    "state-dolphin|Dolphin save states|$home/.var/app/org.DolphinEmu.dolphin-emu/data/dolphin-emu/StateSaves"
+    "save-duckstation|DuckStation saves and states|$root/saves/duckstation"
+    "save-melonds|melonDS saves and states|$root/saves/melonds"
+    "save-mgba|mGBA saves and states|$root/saves/mgba"
+    "save-pcsx2|PCSX2 memory cards and states|$root/saves/pcsx2"
+    "save-ppsspp|PPSSPP saves|$home/.var/app/org.ppsspp.PPSSPP/config/ppsspp/PSP/SAVEDATA"
+    "state-ppsspp|PPSSPP save states|$home/.var/app/org.ppsspp.PPSSPP/config/ppsspp/PSP/PPSSPP_STATE"
+    "save-retroarch|RetroArch saves|$home/.var/app/org.libretro.RetroArch/config/retroarch/saves"
+    "state-retroarch|RetroArch save states|$home/.var/app/org.libretro.RetroArch/config/retroarch/states"
+    "save-rpcs3|RPCS3 saves|$root/storage/rpcs3/dev_hdd0/home/00000001/savedata"
+    "trophy-rpcs3|RPCS3 trophies|$root/storage/rpcs3/dev_hdd0/home/00000001/trophy"
+    "save-ryujinx|Ryujinx saves|$home/.config/Ryujinx/bis/user/save"
+    "savemeta-ryujinx|Ryujinx save metadata|$home/.config/Ryujinx/bis/user/saveMeta"
+    "systemsave-ryujinx|Ryujinx system saves|$home/.config/Ryujinx/bis/system/save"
+    "save-scummvm|ScummVM saves|$root/saves/scummvm"
+    "save-shadps4|shadPS4 saves|$home/.local/share/shadPS4/savedata"
+    "save-xenia|Xenia saves|$root/roms/xbox360/content"
+)
+
+versioning='{"type":"staggered","params":{"maxAge":"31536000"},"cleanupIntervalS":3600,"fsPath":"","fsType":"basic"}'
+
+for entry in "${folders[@]}"; do
+    IFS='|' read -r id label path <<<"$entry"
+    install -d -m 0750 -o gaming -g gaming "$path"
+    if [[ -n "$(find "$path" -mindepth 1 -print -quit)" ]]; then
+        install -d -m 0750 -o gaming -g gaming "$backup"
+        cp -a --reflink=auto "$path" "$backup/$id"
+    fi
+    if as_gaming cli config folders list | grep -Fxq "$id"; then
+        echo "Already configured: $id"
+        continue
+    fi
+    folder_json="$(jq -nc \
+        --arg id "$id" --arg label "$label" --arg path "$path" \
+        --arg local_id "$local_id" --arg remote_id "$remote_id" \
+        --argjson versioning "$versioning" \
+        '{id:$id,label:$label,path:$path,type:"receiveonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:5,ignorePerms:true,minDiskFree:{value:5,unit:"%"},versioning:$versioning}')"
+    as_gaming cli config folders add-json "$folder_json"
+    echo "Added receive-only seed folder: $id"
+done
+
+if [[ -d "$backup" ]]; then
+    chown -R gaming:gaming "$backup"
+    echo "Existing Ubuntu save data backed up to $backup"
+fi
+
+echo "Ubuntu save folders are ready to receive the Deck seed."
+
