@@ -23,6 +23,8 @@ UbuntuDesktop/Frigate/secrets/
 /Frigate/
 Mosquitto/data/
 Mosquitto/secrets/
+/RomM/data/
+/RomM/secrets/
 /romstransfer/
 
 # Logs, databases, backups, and certificates

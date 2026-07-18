@@ -15,6 +15,7 @@ tooling for the Pi and `ubuntu-desktop`.
 - Nginx Proxy Manager
 - ntfy
 - Omada Controller
+- RomM
 - Uptime Kuma
 
 Each service is kept in its own directory. Run Compose commands from that directory so relative bind mounts resolve correctly.
@@ -133,6 +134,12 @@ Assistant. Its Git-backed definition and ACL are tracked under `Mosquitto/`,
 while its password database, client credentials and persistence data remain
 ignored under `/home/abhi/Docker/Mosquitto/`. Run
 `Mosquitto/bootstrap-secrets.sh` on the Pi before its first deployment.
+
+RomM runs on `ubuntu-desktop` and mounts its authoritative SSD2 EmuDeck ROM
+library read-only, so catalogue access cannot modify the libraries used by the
+gaming PC, Steam Deck, or TrimUI Brick. Its Git-backed definition is under
+`UbuntuDesktop/RomM/`; database, metadata, and secrets remain ignored below
+`/home/abhi/Docker/RomM/` on that host.
 
 Before committing, use `git status --short --ignored` to confirm that no sensitive or generated files are being added.
 

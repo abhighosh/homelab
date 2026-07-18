@@ -1,0 +1,60 @@
+services:
+  romm:
+    image: rommapp/romm:4.8.1
+    container_name: romm
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ${ROMM_SECRETS_PATH:-/home/abhi/Docker/RomM/secrets}/romm.env
+    environment:
+      TZ: Europe/London
+      DB_HOST: romm-db
+      DB_NAME: romm
+      DB_USER: romm
+      HASHEOUS_API_ENABLED: "true"
+      ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: "true"
+      RESCAN_ON_FILESYSTEM_CHANGE_DELAY: "10"
+    volumes:
+      # The authoritative SSD2 ROM library is catalogue-only inside RomM.
+      - ${ROMM_LIBRARY_PATH:-/mnt/0bab2145-d970-4175-8dcc-bb9f367c10a7/Emulation/roms}:/romm/library/roms:ro
+      - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/resources:/romm/resources
+      - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/assets:/romm/assets
+      - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/config:/romm/config
+      - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/redis:/redis-data
+    ports:
+      - "${ROMM_TAILSCALE_IP:-100.118.235.83}:8080:8080"
+    depends_on:
+      romm-db:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:8080/api/heartbeat >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - romm-backend
+
+  romm-db:
+    image: mariadb:11.4
+    container_name: romm-db
+    restart: unless-stopped
+    env_file:
+      - ${ROMM_SECRETS_PATH:-/home/abhi/Docker/RomM/secrets}/mariadb.env
+    environment:
+      TZ: Europe/London
+    volumes:
+      - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - romm-backend
+
+networks:
+  romm-backend:
+    internal: true
