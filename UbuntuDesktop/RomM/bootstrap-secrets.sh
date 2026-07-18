@@ -21,9 +21,20 @@ install -d -m 0750 \
     "$data/redis" \
     "$data/mariadb"
 
-if [[ $rotate == false && ( -e "$secrets/romm.env" || -e "$secrets/mariadb.env" ) ]]; then
-    echo "Refusing to replace existing RomM secret files in $secrets." >&2
-    exit 1
+if [[ ! -e "$data/config/config.yml" ]]; then
+    printf '{}\n' >"$data/config/config.yml"
+    chmod 0640 "$data/config/config.yml"
+fi
+
+if [[ $rotate == false ]]; then
+    if [[ -e "$secrets/romm.env" && -e "$secrets/mariadb.env" ]]; then
+        echo "RomM runtime directories already exist; retaining current secrets."
+        exit 0
+    fi
+    if [[ -e "$secrets/romm.env" || -e "$secrets/mariadb.env" ]]; then
+        echo "Refusing an incomplete RomM secret set in $secrets." >&2
+        exit 1
+    fi
 fi
 
 db_password=$(openssl rand -hex 32)

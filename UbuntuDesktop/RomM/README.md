@@ -13,6 +13,10 @@ Syncthing design.
 - Runtime data: `/home/abhi/Docker/RomM/data`
 - Runtime secrets: `/home/abhi/Docker/RomM/secrets`
 
+The bootstrap initializes the persistent `data/config/config.yml` file and is
+safe to rerun without rotating existing credentials. Use `--rotate` only when
+deliberately replacing both database and authentication secrets.
+
 This is RomM Structure A: `/romm/library/roms/{platform}`. The filesystem
 watcher waits ten minutes after Syncthing changes before running a quick scan.
 
