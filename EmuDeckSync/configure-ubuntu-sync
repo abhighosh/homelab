@@ -31,21 +31,23 @@ if ! as_gaming cli config devices list | grep -Fxq "$remote_id"; then
 fi
 
 add_folder() {
-    local id=$1 label=$2 path=$3
+    local id=$1 label=$2 path=$3 type=$4
     if as_gaming cli config folders list | grep -Fxq "$id"; then
+        as_gaming cli config folders "$id" type set "$type"
         return
     fi
     folder_json="$(jq -nc \
         --arg id "$id" --arg label "$label" --arg path "$path" \
         --arg local_id "$local_id" --arg remote_id "$remote_id" \
-        '{id:$id,label:$label,path:$path,type:"receiveonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
+        --arg type "$type" \
+        '{id:$id,label:$label,path:$path,type:$type,devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
     as_gaming cli config folders add-json "$folder_json"
 }
 
-add_folder emudeck-roms "EmuDeck ROMs" "$root/roms"
-add_folder emudeck-updates "EmuDeck Updates" "$root/updates"
-add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks"
-add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks"
+add_folder emudeck-roms "EmuDeck ROMs" "$root/roms" sendonly
+add_folder emudeck-updates "EmuDeck Updates" "$root/updates" receiveonly
+add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks" receiveonly
+add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" receiveonly
 
 as_gaming cli config options global-ann-enabled set false
 as_gaming cli config options relays-enabled set false
@@ -53,4 +55,4 @@ as_gaming cli config options natenabled set false
 as_gaming cli config options local-ann-enabled set true
 as_gaming cli operations restart
 
-echo "Ubuntu Desktop is configured as the initial receive-only target."
+echo "Ubuntu Desktop is authoritative for ROMs and receives other bulk assets from the Deck."

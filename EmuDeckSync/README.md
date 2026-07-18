@@ -18,6 +18,8 @@ passwords, or API credentials here.
 - Ubuntu Desktop: restricted user `gaming`, with `/home/gaming/Emulation`
   linked to SSD2 at
   `/mnt/0bab2145-d970-4175-8dcc-bb9f367c10a7/Emulation`.
+- TrimUI Brick: KNULLI runs Syncthing as `root`; ROMs are below
+  `/userdata/roms` and saves/states are below `/userdata/saves`.
 
 Syncthing identifies peers by device ID rather than IP address. Local discovery
 is enabled, while global discovery, relays, and NAT traversal are disabled.
@@ -27,7 +29,8 @@ Connections are restricted to `192.168.0.0/24`.
 
 | Data | Direction | Versioning |
 | --- | --- | --- |
-| ROMs, updates, HD packs, texture packs | Deck to Ubuntu | None |
+| ROMs | Ubuntu to Deck and Brick | None |
+| Updates, HD packs, texture packs | Deck to Ubuntu | None |
 | Eden keys and firmware | Deck to Ubuntu | Ubuntu retains received versions |
 | Eden saves and profiles | Two way | One-year staggered history on both hosts |
 | Other emulator saves and states | Two way | One-year staggered history on both hosts |
@@ -41,6 +44,17 @@ they contain absolute, host-specific symlinks. The scripts pair the real target
 directories explicitly. Emulator configuration, controller profiles, shader
 caches, logs, ES-DE metadata, Steam shortcuts, and Xemu's mutable virtual disk
 remain device-specific.
+
+The Brick receives only `gbc`, `gba`, `snes`, `n64`, `nds`, `psx`, and `psp`.
+Its rooted `.stignore` allowlist excludes `ports` and every other KNULLI system
+folder. Ubuntu is the ROM source of truth; the Pi is not part of the runtime
+sync topology.
+
+KNULLI save synchronization is intentionally added per emulator after its
+actual save path and core have been verified. KNULLI combines saves and states
+below `/userdata/saves`, unlike EmuDeck's separate folders, and save states are
+not reliably portable between different cores or core versions. In-game saves
+should be preferred wherever the emulator stacks differ.
 
 Cemu and Xenia keep saves below their ROM trees. `assets/roms.stignore`
 excludes those paths from the bulk ROM share so they can be synchronized as
@@ -77,9 +91,9 @@ shown. Device IDs deliberately remain outside Git.
 2. Run `setup-steamdeck` as `deck`. SteamOS is immutable, so it installs the
    checksum-pinned Syncthing binary under `~/.local/bin`. Review and update the
    paired version and checksum before using it for a future rebuild.
-3. Exchange device IDs, then run `configure-steamdeck-sync UBUNTU_DEVICE_ID`
-   and `configure-ubuntu-sync STEAM_DECK_DEVICE_ID` for the protected bulk
-   Deck-to-Ubuntu seed.
+3. Exchange device IDs, then run `configure-ubuntu-sync STEAM_DECK_DEVICE_ID`
+   and `configure-steamdeck-sync UBUNTU_DEVICE_ID`. Ubuntu supplies ROMs;
+   the Deck supplies updates, HD packs, and texture packs.
 4. Wait for the bulk seed to finish before installing or configuring emulators
    on Ubuntu.
 5. Run `install-emudeck-as-gaming` from the Ubuntu `gaming` desktop session.
@@ -93,11 +107,15 @@ shown. Device IDs deliberately remain outside Git.
    targets.
 8. Confirm all save folders are at 100%, close all emulators, then run both
    `finalize-save-sync-*` scripts to enable two-way save synchronization.
+9. On KNULLI, run `configure-knulli-rom-sync UBUNTU_DEVICE_ID`. Trigger
+   **Reload configuration** in KNULLI's device settings if the firmware UI has
+   not noticed the new folder, and enable **Auto-scan on game exit** before
+   adding compatible save shares.
 
-The configure scripts intentionally begin with send-only on the Deck and
-receive-only on Ubuntu. Do not skip directly to the finalizers: the protected
-seed and timestamped Ubuntu backups prevent an empty or newly installed host
-from deleting established saves.
+The save configure scripts intentionally begin with send-only on the Deck and
+receive-only on Ubuntu. Do not skip directly to the save finalizers: the
+protected seed and timestamped Ubuntu backups prevent an empty or newly
+installed host from deleting established saves.
 
 ## Repository contents
 

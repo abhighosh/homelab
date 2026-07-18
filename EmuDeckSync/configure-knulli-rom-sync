@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "$(id -u)" != 0 ]]; then
+    echo "Run this script as root on KNULLI." >&2
+    exit 1
+fi
+if (( $# != 1 )); then
+    echo "Usage: $0 UBUNTU_DEVICE_ID" >&2
+    exit 1
+fi
+
+ubuntu_id=$1
+syncthing=/usr/bin/syncthing
+home=/userdata/system/configs/syncthing
+roms=/userdata/roms
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+st() {
+    "$syncthing" cli --home="$home" "$@"
+}
+
+local_id="$(st show system | jq -r .myID)"
+install -m 0644 "$script_dir/assets/knulli-roms.stignore" "$roms/.stignore"
+
+if ! st config devices list | grep -Fxq "$ubuntu_id"; then
+    device_json="$(jq -nc \
+        --arg id "$ubuntu_id" \
+        '{deviceID:$id,name:"Ubuntu Desktop",addresses:["dynamic"],compression:"metadata",allowedNetworks:["192.168.0.0/24"]}')"
+    st config devices add-json "$device_json"
+fi
+
+if ! st config folders list | grep -Fxq emudeck-roms; then
+    folder_json="$(jq -nc \
+        --arg local_id "$local_id" --arg ubuntu_id "$ubuntu_id" \
+        --arg path "$roms" \
+        '{id:"emudeck-roms",label:"EmuDeck ROMs (selected systems)",path:$path,type:"receiveonly",devices:[{deviceID:$local_id},{deviceID:$ubuntu_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
+    st config folders add-json "$folder_json"
+else
+    st config folders emudeck-roms type set receiveonly
+fi
+
+st config options global-ann-enabled set false
+st config options relays-enabled set false
+st config options natenabled set false
+st config options local-ann-enabled set true
+st operations restart
+
+echo "KNULLI is configured to receive the seven allowlisted ROM systems from Ubuntu."

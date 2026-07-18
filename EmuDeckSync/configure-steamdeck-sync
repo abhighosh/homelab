@@ -27,21 +27,23 @@ if ! "$syncthing" cli config devices list | grep -Fxq "$remote_id"; then
 fi
 
 add_folder() {
-    local id=$1 label=$2 path=$3
+    local id=$1 label=$2 path=$3 type=$4
     if "$syncthing" cli config folders list | grep -Fxq "$id"; then
+        "$syncthing" cli config folders "$id" type set "$type"
         return
     fi
     folder_json="$(jq -nc \
         --arg id "$id" --arg label "$label" --arg path "$path" \
         --arg local_id "$local_id" --arg remote_id "$remote_id" \
-        '{id:$id,label:$label,path:$path,type:"sendonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
+        --arg type "$type" \
+        '{id:$id,label:$label,path:$path,type:$type,devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:10,ignorePerms:true,minDiskFree:{value:5,unit:"%"}}')"
     "$syncthing" cli config folders add-json "$folder_json"
 }
 
-add_folder emudeck-roms "EmuDeck ROMs" "$root/roms"
-add_folder emudeck-updates "EmuDeck Updates" "$root/updates"
-add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks"
-add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks"
+add_folder emudeck-roms "EmuDeck ROMs" "$root/roms" receiveonly
+add_folder emudeck-updates "EmuDeck Updates" "$root/updates" sendonly
+add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks" sendonly
+add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" sendonly
 
 "$syncthing" cli config options global-ann-enabled set false
 "$syncthing" cli config options relays-enabled set false
@@ -49,4 +51,4 @@ add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks"
 "$syncthing" cli config options local-ann-enabled set true
 "$syncthing" cli operations restart
 
-echo "Steam Deck is configured as the initial send-only source."
+echo "Steam Deck receives authoritative ROMs from Ubuntu and supplies other bulk assets."

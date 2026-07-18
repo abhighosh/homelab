@@ -1,0 +1,10 @@
+// The TrimUI Brick receives only these systems. The final rooted wildcard
+// protects KNULLI's ports and every other firmware-created system directory.
+!/gbc
+!/gba
+!/snes
+!/n64
+!/nds
+!/psx
+!/psp
+/*
