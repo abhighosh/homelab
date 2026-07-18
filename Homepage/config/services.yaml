@@ -128,6 +128,20 @@
         target: _self
         siteMonitor: https://openwebui.abhighosh.co.uk
 
+    - RomM:
+        icon: romm
+        description: ROM library and browser emulation
+        href: https://romm.abhighosh.co.uk
+        target: _self
+        siteMonitor: https://romm.abhighosh.co.uk
+
+    - Syncthing:
+        icon: syncthing
+        description: Gaming library and save synchronization
+        href: https://syncthing.abhighosh.co.uk
+        target: _self
+        siteMonitor: https://syncthing.abhighosh.co.uk
+
 - Development:
     - VS Code:
         icon: visual-studio-code

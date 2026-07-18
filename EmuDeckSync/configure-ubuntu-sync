@@ -45,9 +45,9 @@ add_folder() {
 }
 
 add_folder emudeck-roms "EmuDeck ROMs" "$root/roms" sendonly
-add_folder emudeck-updates "EmuDeck Updates" "$root/updates" receiveonly
-add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks" receiveonly
-add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" receiveonly
+add_folder emudeck-updates "EmuDeck Updates" "$root/updates" sendonly
+add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks" sendonly
+add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" sendonly
 
 as_gaming cli config options global-ann-enabled set false
 as_gaming cli config options relays-enabled set false
@@ -55,4 +55,4 @@ as_gaming cli config options natenabled set false
 as_gaming cli config options local-ann-enabled set true
 as_gaming cli operations restart
 
-echo "Ubuntu Desktop is authoritative for ROMs and receives other bulk assets from the Deck."
+echo "Ubuntu Desktop is authoritative for ROMs and all other bulk assets."

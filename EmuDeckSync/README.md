@@ -30,8 +30,8 @@ Connections are restricted to `192.168.0.0/24`.
 | Data | Direction | Versioning |
 | --- | --- | --- |
 | ROMs | Ubuntu to Deck and Brick | None |
-| Updates, HD packs, texture packs | Deck to Ubuntu | None |
-| Eden keys and firmware | Deck to Ubuntu | Ubuntu retains received versions |
+| Updates, HD packs, texture packs | Ubuntu to Deck | None |
+| Eden keys and firmware | Ubuntu to Deck | Deck retains received versions |
 | Eden saves and profiles | Two way | One-year staggered history on both hosts |
 | Other emulator saves and states | Two way | One-year staggered history on both hosts |
 
@@ -47,8 +47,10 @@ remain device-specific.
 
 The Brick receives only `gbc`, `gba`, `snes`, `n64`, `nds`, `psx`, and `psp`.
 Its rooted `.stignore` allowlist excludes `ports` and every other KNULLI system
-folder. Ubuntu is the ROM source of truth; the Pi is not part of the runtime
-sync topology.
+folder. Brick-local KNULLI artwork, catalogue metadata, and operating-system
+sidecar files are also excluded so they do not appear as changes to the
+receive-only ROM share. Ubuntu is the ROM source of truth; the Pi is not part
+of the runtime sync topology.
 
 KNULLI save synchronization is intentionally added per emulator after its
 actual save path and core have been verified. KNULLI combines saves and states
@@ -58,7 +60,9 @@ should be preferred wherever the emulator stacks differ.
 
 Cemu and Xenia keep saves below their ROM trees. `assets/roms.stignore`
 excludes those paths from the bulk ROM share so they can be synchronized as
-separate versioned save folders.
+separate versioned save folders. It also excludes Vita3K's `InstalledGames`
+absolute symlink: Ubuntu and the Deck retain their own host-specific link, and
+the Brick's exFAT data partition cannot represent it.
 
 ## Normal operation
 
@@ -92,16 +96,17 @@ shown. Device IDs deliberately remain outside Git.
    checksum-pinned Syncthing binary under `~/.local/bin`. Review and update the
    paired version and checksum before using it for a future rebuild.
 3. Exchange device IDs, then run `configure-ubuntu-sync STEAM_DECK_DEVICE_ID`
-   and `configure-steamdeck-sync UBUNTU_DEVICE_ID`. Ubuntu supplies ROMs;
-   the Deck supplies updates, HD packs, and texture packs.
+   and `configure-steamdeck-sync UBUNTU_DEVICE_ID`. Ubuntu supplies ROMs,
+   updates, HD packs, and texture packs.
 4. Wait for the bulk seed to finish before installing or configuring emulators
    on Ubuntu.
 5. Run `install-emudeck-as-gaming` from the Ubuntu `gaming` desktop session.
    Run `install-eden-as-gaming` if EmuDeck still cannot install Eden itself,
    then use EmuDeck's Eden reset/configuration action.
 6. Run `configure-eden-steamdeck-sync UBUNTU_DEVICE_ID` and
-   `configure-eden-ubuntu-sync STEAM_DECK_DEVICE_ID` to seed firmware, keys,
-   saves, and profiles from the Deck.
+   `configure-eden-ubuntu-sync STEAM_DECK_DEVICE_ID`. Ubuntu supplies Eden
+   keys and firmware; the Deck supplies the protected initial save/profile
+   seed.
 7. Run `configure-save-sync-steamdeck UBUNTU_DEVICE_ID` and
    `configure-save-sync-ubuntu STEAM_DECK_DEVICE_ID` for the remaining save
    targets.

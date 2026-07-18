@@ -3,3 +3,6 @@
 /wiiu/mlc01/usr/save
 /xbox360/content
 
+// EmuDeck creates this as an absolute, host-specific symlink. Each host keeps
+// its own working link; it must not enter Syncthing's cross-device index.
+/psvita/InstalledGames

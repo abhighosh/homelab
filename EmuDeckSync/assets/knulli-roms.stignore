@@ -1,3 +1,24 @@
+// Keep host-generated filesystem sidecars and KNULLI's local catalogue assets
+// out of the receive-only ROM share. These rules must precede the allowlist:
+// Syncthing applies the first matching rule.
+// These existing Ubuntu catalogue files are intentionally shared so remote
+// completion remains a useful monitoring signal.
+!/nds/_info.txt
+!/snes/_info.txt
+!/snes/images/DonkeyKongClassic (Shiru)-image.png
+!/snes/images/DonkeyKongClassic (Shiru)-marquee.png
+!/snes/images/DonkeyKongClassic (Shiru)-thumb.png
+!/snes/videos/DonkeyKongClassic (Shiru)-video.mp4
+(?d).DS_Store
+(?d)._*
+(?d)gamelist.xml
+(?d)metadata.txt
+(?d)systeminfo.txt
+(?d)_info.txt
+(?d)images
+(?d)videos
+(?d)manuals
+
 // The TrimUI Brick receives only these systems. The final rooted wildcard
 // protects KNULLI's ports and every other firmware-created system directory.
 !/gbc

@@ -41,9 +41,9 @@ add_folder() {
 }
 
 add_folder emudeck-roms "EmuDeck ROMs" "$root/roms" receiveonly
-add_folder emudeck-updates "EmuDeck Updates" "$root/updates" sendonly
-add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks" sendonly
-add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" sendonly
+add_folder emudeck-updates "EmuDeck Updates" "$root/updates" receiveonly
+add_folder emudeck-hdpacks "EmuDeck HD Packs" "$root/hdpacks" receiveonly
+add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" receiveonly
 
 "$syncthing" cli config options global-ann-enabled set false
 "$syncthing" cli config options relays-enabled set false
@@ -51,4 +51,4 @@ add_folder emudeck-texturepacks "EmuDeck Texture Packs" "$root/texturepacks" sen
 "$syncthing" cli config options local-ann-enabled set true
 "$syncthing" cli operations restart
 
-echo "Steam Deck receives authoritative ROMs from Ubuntu and supplies other bulk assets."
+echo "Steam Deck receives authoritative ROMs and other bulk assets from Ubuntu."

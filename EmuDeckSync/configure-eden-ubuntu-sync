@@ -82,8 +82,9 @@ if ! as_gaming cli config devices list | grep -Fxq "$remote_id"; then
 fi
 
 add_folder() {
-    local id=$1 label=$2 path=$3 versioned=$4
+    local id=$1 label=$2 path=$3 type=$4 versioned=$5
     if as_gaming cli config folders list | grep -Fxq "$id"; then
+        as_gaming cli config folders "$id" type set "$type"
         return
     fi
     if [[ "$versioned" == true ]]; then
@@ -94,16 +95,16 @@ add_folder() {
     folder_json="$(jq -nc \
         --arg id "$id" --arg label "$label" --arg path "$path" \
         --arg local_id "$local_id" --arg remote_id "$remote_id" \
-        --argjson versioning "$versioning" \
-        '{id:$id,label:$label,path:$path,type:"receiveonly",devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:5,ignorePerms:true,minDiskFree:{value:5,unit:"%"},versioning:$versioning}')"
+        --arg type "$type" --argjson versioning "$versioning" \
+        '{id:$id,label:$label,path:$path,type:$type,devices:[{deviceID:$local_id},{deviceID:$remote_id}],rescanIntervalS:3600,fsWatcherEnabled:true,fsWatcherDelayS:5,ignorePerms:true,minDiskFree:{value:5,unit:"%"},versioning:$versioning}')"
     as_gaming cli config folders add-json "$folder_json"
 }
 
-add_folder eden-keys "Eden Keys" "$keys" false
-add_folder eden-firmware "Eden Firmware" "$firmware" false
-add_folder eden-saves "Eden Saves" "$saves" true
-add_folder eden-profiles "Eden Profiles" "$profiles" true
+add_folder eden-keys "Eden Keys" "$keys" sendonly false
+add_folder eden-firmware "Eden Firmware" "$firmware" sendonly false
+add_folder eden-saves "Eden Saves" "$saves" receiveonly true
+add_folder eden-profiles "Eden Profiles" "$profiles" receiveonly true
 
-echo "Ubuntu Eden data is configured as the protected receive-only target."
-echo "After validation, both hosts will be changed to send-and-receive."
-
+echo "Ubuntu is authoritative for Eden keys and firmware."
+echo "Saves and profiles are protected receive-only during the initial seed."
+echo "After validation, saves and profiles will be changed to send-and-receive."
