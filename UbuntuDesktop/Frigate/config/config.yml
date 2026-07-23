@@ -36,7 +36,10 @@ go2rtc:
     snug:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream1#backchannel=0"
     nest:
-      - "{FRIGATE_NEST_RTSP_URL}"
+      # Starling's RTSP output omits H.264 SPS/PPS data from its initial SDP.
+      # Remuxing with stream copy normalizes the feed for strict MSE clients
+      # such as CrowsEye without adding video or audio transcoding overhead.
+      - "ffmpeg:{FRIGATE_NEST_RTSP_URL}#video=copy#audio=copy"
 
 detect:
   enabled: false
