@@ -59,7 +59,7 @@ record:
   enabled: true
   sync_recordings: true
   continuous:
-    days: 14
+    days: 30
 
 snapshots:
   enabled: false

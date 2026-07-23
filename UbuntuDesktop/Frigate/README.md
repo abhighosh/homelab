@@ -20,7 +20,7 @@ cameras and the Nest stream supplied by Starling Home Hub.
   feed is proven stable, Scrypted can consume Frigate's authenticated
   `rtsp://192.168.0.180:8554/nest` restream instead of connecting to Starling
   directly.
-- Recordings are retained continuously for 14 days.
+- Recordings are retained continuously for 30 days.
 - Object detection, motion processing, event snapshots and Birdseye are
   deliberately disabled because Tapo Care and HomeKit Secure Video already
   provide detections. Frigate is not given access to the NVIDIA GPU. It uses
