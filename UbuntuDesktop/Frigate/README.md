@@ -11,6 +11,11 @@ cameras and the Nest stream supplied by Starling Home Hub.
   HomeKit.
 - Frigate's bundled go2rtc owns those RTSP connections and restreams them
   internally, avoiding duplicate connections from Frigate components.
+- The Nest URL is ingested directly by go2rtc. Starling initially omits H.264
+  SPS/PPS parameters from its RTSP description, but go2rtc learns them from the
+  active stream and advertises them to strict MSE clients. Do not wrap this URL
+  in an FFmpeg stream-copy source, because FFmpeg's static RTSP description
+  omits the learned parameters.
 - The Nest camera initially has one additional consumer from Frigate. After the
   feed is proven stable, Scrypted can consume Frigate's authenticated
   `rtsp://192.168.0.180:8554/nest` restream instead of connecting to Starling
