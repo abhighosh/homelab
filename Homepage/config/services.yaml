@@ -120,6 +120,7 @@
         description: Camera and smart-home bridge
         href: https://scrypted.abhighosh.co.uk
         target: _self
+        siteMonitor: https://scrypted.abhighosh.co.uk
 
     - OpenWebUI:
         icon: open-webui
