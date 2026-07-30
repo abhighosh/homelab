@@ -1,0 +1,248 @@
+esphome:
+  name: crowpanel-dashboard-01
+  friendly_name: CrowPanel Dashboard
+  min_version: 2026.7.2
+  project:
+    name: homelab.crowpanel-dashboard
+    version: hardware-test-5
+  on_boot:
+    # The V1.2/V1.3 board controller at 0x30 owns touch power and backlight.
+    # 250 wakes touch. Brightness 16 is maximum on V1.1 and still near-maximum
+    # on V1.2/V1.3, making the bench image safe across Advance revisions.
+    - priority: 600
+      then:
+        - lambda: |-
+            const uint8_t touch_enable = 250;
+            if (id(board_controller).write(&touch_enable, 1) !=
+                esphome::i2c::ERROR_OK) {
+              ESP_LOGW("crowpanel", "Board controller did not acknowledge touch-enable");
+            }
+        - delay: 250ms
+        - lambda: |-
+            const uint8_t compatible_brightness = 16;
+            if (id(board_controller).write(&compatible_brightness, 1) !=
+                esphome::i2c::ERROR_OK) {
+              ESP_LOGW("crowpanel", "Board controller did not acknowledge backlight command");
+            }
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      # Elecrow ships this N16R8 board with a custom 120 MHz octal-PSRAM
+      # package. ESP-IDF exposes the same mode as an experimental feature.
+      enable_idf_experimental_features: true
+
+psram:
+  mode: octal
+  speed: 120MHz
+  ignore_not_found: false
+
+# The board's USB-C socket connects through its CH340K bridge to UART0.
+logger:
+  hardware_uart: UART0
+
+# Reuse the existing protected credentials for this bench image. The deployed
+# dashboard will receive its own device secrets before it joins Home Assistant.
+api:
+  encryption:
+    key: !secret cat_panel_01_api_key
+
+ota:
+  - platform: esphome
+    password: !secret cat_panel_01_ota_password
+
+wifi:
+  ap:
+    ssid: CrowPanel Dashboard Setup
+    password: !secret cat_panel_01_fallback_password
+
+captive_portal:
+
+i2c:
+  id: panel_i2c
+  sda: GPIO15
+  scl: GPIO16
+  frequency: 400kHz
+  scan: true
+
+i2c_device:
+  id: board_controller
+  i2c_id: panel_i2c
+  address: 0x30
+
+display:
+  - platform: rpi_dpi_rgb
+    id: panel
+    dimensions:
+      width: 800
+      height: 480
+    color_order: RGB
+    # Elecrow's LovyanGFX factory image uses 21 MHz with 120 MHz PSRAM and two
+    # full-screen LVGL buffers. ESPHome uses one display framebuffer, so test
+    # a slightly more conservative 18 MHz with the same PSRAM speed.
+    pclk_frequency: 18MHz
+    pclk_inverted: true
+    de_pin: GPIO42
+    hsync_pin: GPIO40
+    vsync_pin: GPIO41
+    pclk_pin: GPIO39
+    hsync_pulse_width: 4
+    hsync_front_porch: 8
+    hsync_back_porch: 8
+    vsync_pulse_width: 4
+    vsync_front_porch: 8
+    vsync_back_porch: 8
+    data_pins:
+      red:
+        - GPIO7
+        - GPIO17
+        - GPIO18
+        - GPIO3
+        - GPIO46
+      green:
+        - GPIO9
+        - GPIO10
+        - GPIO11
+        - GPIO12
+        - GPIO13
+        - GPIO14
+      blue:
+        - GPIO21
+        - GPIO47
+        - GPIO48
+        - GPIO45
+        - GPIO38
+    auto_clear_enabled: false
+    update_interval: never
+
+touchscreen:
+  - platform: gt911
+    id: panel_touch
+    display: panel
+    i2c_id: panel_i2c
+    address: 0x5D
+    update_interval: 50ms
+    on_touch:
+      - logger.log:
+          format: "Touch x=%d y=%d"
+          args: [touch.x, touch.y]
+
+# A deliberately static page replaces ESPHome's animated LVGL demo. This
+# verifies whether the occasional tearing is animation/framebuffer pressure
+# before camera images and Home Assistant data are introduced.
+lvgl:
+  displays: panel
+  touchscreens: panel_touch
+  buffer_size: 25%
+  bg_color: 0x0B1220
+  text_color: 0xF8FAFC
+  pages:
+    - id: static_test_page
+      widgets:
+        - label:
+            x: 28
+            y: 24
+            text: "CROWPANEL"
+            text_font: montserrat_28
+            text_color: 0x94A3B8
+        - label:
+            x: 28
+            y: 60
+            text: "Dashboard hardware ready"
+            text_font: montserrat_36
+        - obj:
+            x: 28
+            y: 126
+            width: 234
+            height: 250
+            bg_color: 0x176B4D
+            border_width: 0
+            radius: 16
+            scrollable: false
+            widgets:
+              - label:
+                  x: 18
+                  y: 18
+                  text: "DISPLAY"
+                  text_font: montserrat_18
+                  text_color: 0xD1FAE5
+              - label:
+                  align: CENTER
+                  text: "800 x 480\nRGB + touch\nOK"
+                  text_align: CENTER
+                  text_font: montserrat_28
+        - obj:
+            x: 280
+            y: 126
+            width: 234
+            height: 250
+            bg_color: 0x1D4058
+            border_width: 0
+            radius: 16
+            scrollable: false
+            widgets:
+              - label:
+                  x: 18
+                  y: 18
+                  text: "HOME ASSISTANT"
+                  text_font: montserrat_18
+                  text_color: 0xDBEAFE
+              - label:
+                  align: CENTER
+                  text: "Presence\nCameras\nClimate"
+                  text_align: CENTER
+                  text_font: montserrat_28
+        - button:
+            id: touch_test_button
+            x: 532
+            y: 126
+            width: 240
+            height: 250
+            bg_color: 0x6D3B85
+            border_width: 0
+            radius: 16
+            on_press:
+              - lvgl.label.update:
+                  id: touch_test_label
+                  text: "TOUCH OK"
+            on_release:
+              - delay: 750ms
+              - lvgl.label.update:
+                  id: touch_test_label
+                  text: "TOUCH HERE"
+            widgets:
+              - label:
+                  x: 18
+                  y: 18
+                  text: "INPUT"
+                  text_font: montserrat_18
+                  text_color: 0xF3E8FF
+              - label:
+                  id: touch_test_label
+                  align: CENTER
+                  text: "TOUCH HERE"
+                  text_font: montserrat_28
+        - label:
+            x: 28
+            y: 410
+            text: "Static render test - no animation or automatic repaint"
+            text_font: montserrat_20
+            text_color: 0x94A3B8
+
+button:
+  - platform: restart
+    name: Restart
+
+sensor:
+  - platform: wifi_signal
+    name: Wi-Fi Signal
+    update_interval: 60s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IP Address

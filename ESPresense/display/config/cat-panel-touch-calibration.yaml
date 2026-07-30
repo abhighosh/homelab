@@ -1,0 +1,98 @@
+esphome:
+  name: cat-panel-01
+  friendly_name: Cat Panel 01
+  min_version: 2026.7.2
+  project:
+    name: homelab.cat-panel
+    version: touch-calibrated-1
+
+esp32:
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+  toolchain: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret cat_panel_01_api_key
+
+ota:
+  - platform: esphome
+    password: !secret cat_panel_01_ota_password
+
+wifi:
+  ap:
+    ssid: Cat Panel 01 Setup
+    password: !secret cat_panel_01_fallback_password
+
+captive_portal:
+
+# This board uses independent SPI buses for its display and touch controller.
+spi:
+  - id: display_spi
+    clk_pin: GPIO14
+    mosi_pin: GPIO13
+    miso_pin: GPIO12
+  - id: touch_spi
+    clk_pin: GPIO25
+    mosi_pin: GPIO32
+    miso_pin: GPIO39
+
+output:
+  - platform: ledc
+    id: backlight_pwm
+    pin: GPIO21
+
+light:
+  - platform: monochromatic
+    id: backlight
+    name: Backlight
+    output: backlight_pwm
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+
+display:
+  - platform: mipi_spi
+    id: panel
+    model: ILI9341
+    spi_id: display_spi
+    cs_pin: GPIO15
+    dc_pin: GPIO2
+    data_rate: 10MHz
+    color_order: bgr
+    color_depth: 16
+    buffer_size: 12%
+    auto_clear_enabled: false
+    update_interval: never
+
+# Measured on this panel in portrait orientation. Raw X runs right-to-left, so
+# mirror_x converts it to the display's left-to-right coordinate system.
+touchscreen:
+  - platform: xpt2046
+    id: panel_touch
+    display: panel
+    spi_id: touch_spi
+    cs_pin: GPIO33
+    interrupt_pin: GPIO36
+    update_interval: 50ms
+    threshold: 400
+    calibration:
+      x_min: 280
+      x_max: 3800
+      y_min: 200
+      y_max: 3730
+    transform:
+      mirror_x: true
+    on_touch:
+      - lambda: |-
+          ESP_LOGI("touch_calibration",
+                   "x=%d, y=%d, x_raw=%d, y_raw=%d",
+                   touch.x, touch.y, touch.x_raw, touch.y_raw);
+
+lvgl:
+  displays: panel
+  touchscreens: panel_touch
+  buffer_size: 25%

@@ -1,0 +1,130 @@
+pilot:
+  firmware_version: "4.0.6"
+  mqtt_broker: "192.168.0.220:1883"
+
+  nodes:
+    ground_hallway:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.14"
+      role: "allowed_reference"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+
+    snug:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.16"
+      role: "forbidden"
+      rx_adjustment_db: -2
+      absorption: 2.7
+      max_distance_m: 16
+      calibration_note: "One-metre offset applied; two-metre validation deferred."
+
+    kitchen:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.21"
+      role: "allowed"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+      calibration_note: "Receiver verification and calibration deferred."
+
+    first_floor_hallway:
+      board: "ELEGOO generic ESP32"
+      chip: "ESP32-D0WD-V3"
+      firmware_flavour: "esp32"
+      ip_address: "192.168.0.8"
+      role: "allowed"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+      calibration_note: "Generic-board receiver calibration deferred."
+
+    master_bedroom:
+      board: "ELEGOO generic ESP32"
+      chip: "ESP32-D0WD-V3"
+      firmware_flavour: "esp32"
+      ip_address: "192.168.0.9"
+      role: "forbidden"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+      calibration_note: "Generic-board receiver calibration deferred; deployed Wi-Fi RSSI was -71 dBm."
+
+    second_floor_hallway:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.17"
+      role: "allowed"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+      calibration_note: "Receiver validation deferred for the pilot."
+
+    ground_floor_living_room:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.27"
+      deployment_status: "deployed_uncalibrated"
+      role: "forbidden"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+
+    first_floor_guest_double_bedroom:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.28"
+      deployment_status: "deployed_uncalibrated"
+      role: "forbidden"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+
+    first_floor_study:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.29"
+      deployment_status: "deployed_uncalibrated"
+      role: "forbidden"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+
+    second_floor_green_bedroom:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.30"
+      deployment_status: "deployed_uncalibrated"
+      role: "forbidden"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+
+    second_floor_guest_ensuite:
+      board: "M5 ATOM Lite"
+      firmware_flavour: "m5atom"
+      ip_address: "192.168.0.31"
+      deployment_status: "deployed_uncalibrated"
+      role: "forbidden"
+      rx_adjustment_db: 0
+      absorption: 2.7
+      max_distance_m: 16
+
+  devices:
+    cat_collar:
+      display_name: "Cat Collar"
+      type: "iBeacon"
+      fingerprint: "iBeacon:fda50693-a4e2-4fb1-afcf-c6eb07647825-10011-19641"
+      advertised_name: "Holy-IOT"
+      calibrated_rssi_at_1m_dbm: -66
+      advertising_interval_ms: 500
+
+    abhi_iphone:
+      alias: "phone:abhi-iphone"
+      display_name: "abhi_iphone"
+      type: "enrolled_irk"
+      identity_note: "IRK is private and intentionally not recorded in Git."

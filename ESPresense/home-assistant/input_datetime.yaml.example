@@ -1,0 +1,5 @@
+roborock_schedule_time:
+  name: "Roborock schedule time"
+  icon: mdi:clock-outline
+  has_date: false
+  has_time: true

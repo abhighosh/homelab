@@ -28,8 +28,18 @@ watcher waits ten minutes after Syncthing changes before running a quick scan.
    the `ubuntu-desktop` server and deploy it.
 3. Open the RomM setup page and run the initial library scan.
 
-RomM listens only on Ubuntu Desktop's Tailscale address at port 8080. Nginx
-Proxy Manager can route a Tailscale-only hostname to `100.118.235.83:8080`.
+Docker publishes RomM only on the host loopback address at port 8080. Configure
+a persistent Tailscale Serve TCP forward once on `ubuntu-desktop`:
+
+```sh
+tailscale serve --bg --yes --tcp=8080 tcp://127.0.0.1:8080
+```
+
+`abhi` must first be configured as Tailscale's operator. Tailscale then exposes
+`100.118.235.83:8080` only to the tailnet, and Nginx Proxy Manager can continue
+to use that address. Keeping the Docker listener independent of `tailscale0`
+allows RomM to start cleanly before Tailscale has acquired its address. Do not
+replace the loopback binding with a direct Tailscale-address binding.
 
 Back up `data/mariadb`, `data/resources`, `data/assets`, `data/config`, and the
 ignored `secrets` directory. The ROM library already follows the separate

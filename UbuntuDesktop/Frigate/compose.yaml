@@ -1,4 +1,54 @@
 services:
+  nest-relay:
+    image: bluenviron/mediamtx:1.16.3
+    container_name: frigate-nest-relay
+    restart: unless-stopped
+    command: ["/mediamtx.yml"]
+    volumes:
+      - ./nest-transcode/mediamtx.yml:/mediamtx.yml:ro
+    healthcheck:
+      test:
+        - CMD
+        - /mediamtx
+        - --version
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  nest-transcoder:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    container_name: frigate-nest-transcoder
+    restart: unless-stopped
+    depends_on:
+      nest-relay:
+        condition: service_started
+    # Keep the continuous encode on one physical Zen 3 core (SMT siblings
+    # 5 and 11) and let interactive gaming work take scheduler priority.
+    cpuset: "5,11"
+    cpu_shares: 128
+    entrypoint: ["/bin/bash", "/opt/nest-transcode/run.sh"]
+    volumes:
+      - ./nest-transcode/run.sh:/opt/nest-transcode/run.sh:ro
+    secrets:
+      - source: scrypted_nest_rtsp_url
+        target: FRIGATE_SCRYPTED_NEST_RTSP_URL
+    healthcheck:
+      test:
+        - CMD
+        - /usr/lib/ffmpeg/7.0/bin/ffprobe
+        - -v
+        - error
+        - -rtsp_transport
+        - tcp
+        - -show_entries
+        - stream=codec_name
+        - rtsp://nest-relay:8554/nest
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   frigate:
     image: ghcr.io/blakeblackshear/frigate:stable
     container_name: frigate
@@ -18,7 +68,6 @@ services:
           size: 1000000000
     ports:
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8971:8971"
-      - "${FRIGATE_TAILSCALE_IP:-100.118.235.83}:8971:8971"
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8554:8554"
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8555:8555/tcp"
       - "${FRIGATE_BIND_IP:-192.168.0.180}:8555:8555/udp"
@@ -27,8 +76,6 @@ services:
         target: FRIGATE_TAPO_USER
       - source: tapo_rtsp_password
         target: FRIGATE_TAPO_PASSWORD
-      - source: nest_rtsp_url
-        target: FRIGATE_NEST_RTSP_URL
       - source: go2rtc_user
         target: FRIGATE_GO2RTC_USER
       - source: go2rtc_password
@@ -51,8 +98,8 @@ secrets:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_user
   tapo_rtsp_password:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_password
-  nest_rtsp_url:
-    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/nest_rtsp_url
+  scrypted_nest_rtsp_url:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/scrypted_nest_rtsp_url
   go2rtc_user:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_user
   go2rtc_password:

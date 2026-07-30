@@ -1,0 +1,819 @@
+esphome:
+  name: cat-panel-01
+  friendly_name: Panel
+  min_version: 2026.7.2
+  project:
+    name: homelab.panel
+    version: dashboard-5
+
+esp32:
+  variant: esp32
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    advanced:
+      minimum_chip_revision: "3.1"
+      sram1_as_iram: true
+  toolchain: esp-idf
+
+logger:
+
+api:
+  encryption:
+    key: !secret cat_panel_01_api_key
+
+ota:
+  - platform: esphome
+    password: !secret cat_panel_01_ota_password
+
+wifi:
+  ap:
+    ssid: Cat Panel 01 Setup
+    password: !secret cat_panel_01_fallback_password
+
+captive_portal:
+
+spi:
+  - id: display_spi
+    clk_pin: GPIO14
+    mosi_pin: GPIO13
+    miso_pin: GPIO12
+  - id: touch_spi
+    clk_pin: GPIO25
+    mosi_pin: GPIO32
+    miso_pin: GPIO39
+
+output:
+  - platform: ledc
+    id: backlight_pwm
+    pin: GPIO21
+
+light:
+  - platform: monochromatic
+    id: backlight
+    name: Backlight
+    output: backlight_pwm
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+
+globals:
+  - id: cat_forbidden
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: cat_became_safe
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+display:
+  - platform: mipi_spi
+    id: panel
+    model: ILI9341
+    spi_id: display_spi
+    cs_pin: GPIO15
+    dc_pin: GPIO2
+    data_rate: 10MHz
+    color_order: bgr
+    color_depth: 16
+    buffer_size: 12%
+    auto_clear_enabled: false
+    update_interval: never
+
+touchscreen:
+  - platform: xpt2046
+    id: panel_touch
+    display: panel
+    spi_id: touch_spi
+    cs_pin: GPIO33
+    interrupt_pin: GPIO36
+    update_interval: 50ms
+    threshold: 400
+    calibration:
+      x_min: 280
+      x_max: 3800
+      y_min: 200
+      y_max: 3730
+    transform:
+      mirror_x: true
+
+time:
+  - platform: homeassistant
+    id: ha_time
+    on_time_sync:
+      - script.execute: refresh_clock
+    on_time:
+      - seconds: 0
+        minutes: "*"
+        then:
+          - script.execute: refresh_clock
+
+script:
+  - id: refresh_clock
+    then:
+      - lvgl.label.update:
+          id: clock_label
+          text: !lambda |-
+            auto now = id(ha_time).now();
+            if (!now.is_valid()) {
+              return std::string("--:--");
+            }
+            return now.strftime("%H:%M");
+  - id: refresh_cat_card
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return !id(cat_room).has_state() ||
+                     id(cat_room).state.empty() ||
+                     id(cat_room).state == "unknown" ||
+                     id(cat_room).state == "unavailable" ||
+                     id(cat_room).state == "not_home";
+          then:
+            - lambda: |-
+                id(cat_forbidden) =
+                  id(cat_in_forbidden_room).has_state() &&
+                  id(cat_in_forbidden_room).state;
+                id(cat_became_safe) = false;
+            - lvgl.label.update:
+                id: cat_safety_label
+                text: !lambda |-
+                  return std::string(
+                    id(cat_forbidden) ? "NOT DETECTED" : "CHECKING...");
+            - lvgl.widget.update:
+                id: cat_card
+                bg_color: !lambda |-
+                  return lv_color_hex(
+                    id(cat_forbidden) ? 0x9C2634 : 0x8A6116);
+            - if:
+                condition:
+                  lambda: return !id(cat_forbidden);
+                then:
+                  - lvgl.pause
+          else:
+            - if:
+                condition:
+                  lambda: return id(cat_in_forbidden_room).has_state();
+                then:
+                  - lvgl.label.update:
+                      id: cat_safety_label
+                      text: !lambda |-
+                        return std::string(
+                          id(cat_in_forbidden_room).state
+                            ? "KEEP OUT"
+                            : "SAFE ROOM");
+                  - lvgl.widget.update:
+                      id: cat_card
+                      bg_color: !lambda |-
+                        return lv_color_hex(
+                          id(cat_in_forbidden_room).state
+                            ? 0x9C2634
+                            : 0x176B4D);
+                else:
+                  - lvgl.label.update:
+                      id: cat_safety_label
+                      text: "CHECKING..."
+                  - lvgl.widget.update:
+                      id: cat_card
+                      bg_color: 0x8A6116
+  - id: apply_screen_policy
+    then:
+      - lambda: |-
+          id(cat_forbidden) =
+            id(cat_in_forbidden_room).has_state() &&
+            id(cat_in_forbidden_room).state;
+      - if:
+          condition:
+            lambda: return id(cat_forbidden);
+          then:
+            - lvgl.resume:
+            - if:
+                condition:
+                  light.is_off: backlight
+                then:
+                  - light.turn_on: backlight
+          else:
+            - if:
+                condition:
+                  lvgl.is_idle:
+                    timeout: 30s
+                then:
+                  - lvgl.pause:
+  - id: refresh_occupancy
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return !id(room_tiles).has_state() ||
+                     id(room_tiles).state == "unknown" ||
+                     id(room_tiles).state == "unavailable";
+          then:
+            - script.execute:
+                id: update_room_tiles
+                data: !lambda |-
+                  auto state_code = [](binary_sensor::BinarySensor *sensor,
+                                       bool danger) -> std::string {
+                    if (!sensor->has_state()) return "?";
+                    if (!sensor->state) return "0";
+                    return danger ? "2" : "1";
+                  };
+                  auto phone_code = [](const std::string &room) -> std::string {
+                    if (!id(iphone_room).has_state() ||
+                        id(iphone_room).state == "unknown" ||
+                        id(iphone_room).state == "unavailable" ||
+                        id(iphone_room).state == "not_home") return "?";
+                    return id(iphone_room).state == room ? "1" : "0";
+                  };
+                  return "G Hall:" + state_code(id(cat_ground_hall), false) +
+                         ":" + phone_code("ground_hallway") +
+                         "|Snug:" + state_code(id(cat_snug), true) +
+                         ":" + phone_code("snug") +
+                         "|2F Hall:" +
+                         state_code(id(cat_second_floor_hall), false) +
+                         ":" + phone_code("second_floor_hallway");
+  - id: update_room_tiles
+    parameters:
+      data: string
+    then:
+      - lambda: |-
+          static std::string labels[10];
+          static const char *map[13];
+          auto trim = [](std::string &value) {
+            const auto first = value.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) {
+              value.clear();
+              return;
+            }
+            const auto last = value.find_last_not_of(" \t\r\n");
+            value = value.substr(first, last - first + 1);
+          };
+          size_t start = 0;
+          for (int i = 0; i < 10; i++) {
+            std::string name;
+            std::string cat_state;
+            std::string phone_state{"0"};
+            if (start >= data.size()) {
+              name = " ";
+            } else {
+              size_t end = data.find('|', start);
+              if (end == std::string::npos) end = data.size();
+              std::string entry = data.substr(start, end - start);
+              start = end + 1;
+              size_t first_separator = entry.find(':');
+              if (first_separator == std::string::npos ||
+                  first_separator == 0) {
+                name = " ";
+              } else {
+                name = entry.substr(0, first_separator);
+                size_t second_separator =
+                  entry.find(':', first_separator + 1);
+                if (second_separator == std::string::npos) {
+                  cat_state = entry.substr(first_separator + 1);
+                } else {
+                  cat_state = entry.substr(
+                    first_separator + 1,
+                    second_separator - first_separator - 1);
+                  phone_state = entry.substr(second_separator + 1);
+                }
+                trim(name);
+                trim(cat_state);
+                trim(phone_state);
+                if (name.empty()) name = " ";
+              }
+            }
+
+            labels[i] = name;
+            if (cat_state == "1") {
+              labels[i] += "\n#2ECC71 C#";
+            } else if (cat_state == "2") {
+              labels[i] += "\nC";
+            }
+            if (phone_state == "1") {
+              if (cat_state != "1" && cat_state != "2") labels[i] += "\n";
+              else labels[i] += " ";
+              labels[i] += "#4AA3FF A#";
+            }
+            if (cat_state == "?" && phone_state == "?") labels[i] += "\n?";
+
+            lv_buttonmatrix_clear_button_ctrl(
+              id(room_matrix)->obj, i,
+              static_cast<lv_buttonmatrix_ctrl_t>(
+                LV_BUTTONMATRIX_CTRL_CHECKED |
+                LV_BUTTONMATRIX_CTRL_DISABLED |
+                LV_BUTTONMATRIX_CTRL_HIDDEN));
+            if (cat_state == "2") {
+              lv_buttonmatrix_set_button_ctrl(
+                id(room_matrix)->obj, i, LV_BUTTONMATRIX_CTRL_CHECKED);
+            } else if (cat_state == "?" && phone_state == "?") {
+              lv_buttonmatrix_set_button_ctrl(
+                id(room_matrix)->obj, i, LV_BUTTONMATRIX_CTRL_DISABLED);
+            } else if (name == " ") {
+              lv_buttonmatrix_set_button_ctrl(
+                id(room_matrix)->obj, i, LV_BUTTONMATRIX_CTRL_HIDDEN);
+            }
+          }
+          map[0] = labels[0].c_str();
+          map[1] = labels[1].c_str();
+          map[2] = labels[2].c_str();
+          map[3] = labels[3].c_str();
+          map[4] = labels[4].c_str();
+          map[5] = "\n";
+          map[6] = labels[5].c_str();
+          map[7] = labels[6].c_str();
+          map[8] = labels[7].c_str();
+          map[9] = labels[8].c_str();
+          map[10] = labels[9].c_str();
+          map[11] = "";
+          map[12] = nullptr;
+          lv_buttonmatrix_set_map(id(room_matrix)->obj, map);
+
+interval:
+  - interval: 5s
+    then:
+      - script.execute: refresh_occupancy
+      - script.execute: refresh_cat_card
+      - script.execute: apply_screen_policy
+
+text_sensor:
+  - platform: homeassistant
+    id: cat_room
+    entity_id: sensor.cat_collar_confirmed_room
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: cat_location_label
+            text: !lambda |-
+              std::string room = x;
+              if (room.empty() || room == "unknown" || room == "unavailable" ||
+                  room == "not_home") {
+                return std::string("Unknown");
+              }
+              for (auto &c : room) {
+                if (c == '_') c = ' ';
+              }
+              bool capitalize = true;
+              for (auto &c : room) {
+                if (capitalize && c >= 'a' && c <= 'z') c -= 32;
+                capitalize = (c == ' ');
+              }
+              return room;
+        - script.execute: refresh_cat_card
+
+  - platform: homeassistant
+    id: room_tiles
+    entity_id: sensor.cat_panel_room_tiles
+    on_value:
+      then:
+        - script.execute:
+            id: update_room_tiles
+            data: !lambda return x;
+
+  - platform: homeassistant
+    id: action_labels
+    entity_id: sensor.panel_action_labels
+    on_value:
+      then:
+        - lambda: |-
+            lv_obj_t *labels[] = {
+              id(action_label_1), id(action_label_2), id(action_label_3),
+              id(action_label_4), id(action_label_5), id(action_label_6)
+            };
+            size_t start = 0;
+            for (int i = 0; i < 6; i++) {
+              if (start >= x.size()) break;
+              size_t end = x.find('|', start);
+              if (end == std::string::npos) end = x.size();
+              std::string label = x.substr(start, end - start);
+              if (!label.empty()) lv_label_set_text(labels[i], label.c_str());
+              start = end + 1;
+            }
+
+  - platform: homeassistant
+    id: iphone_room
+    entity_id: sensor.abhi_iphone_room
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: iphone_location_label
+            text: !lambda |-
+              std::string room = x;
+              if (room.empty() || room == "unknown" || room == "unavailable" ||
+                  room == "not_home") {
+                return std::string("Unknown");
+              }
+              for (auto &c : room) {
+                if (c == '_') c = ' ';
+              }
+              bool capitalize = true;
+              for (auto &c : room) {
+                if (capitalize && c >= 'a' && c <= 'z') c -= 32;
+                capitalize = (c == ' ');
+              }
+              return room;
+
+binary_sensor:
+  - platform: homeassistant
+    id: cat_in_forbidden_room
+    entity_id: binary_sensor.cat_in_forbidden_room
+    on_state:
+      then:
+        - lambda: |-
+            bool was_forbidden = id(cat_forbidden);
+            id(cat_forbidden) = x;
+            id(cat_became_safe) = was_forbidden && !x;
+        - script.execute: refresh_cat_card
+        - if:
+            condition:
+              lambda: return id(cat_forbidden);
+            then:
+              - lvgl.resume:
+              - light.turn_on: backlight
+            else:
+              - if:
+                  condition:
+                    lambda: return id(cat_became_safe);
+                  then:
+                    - lvgl.pause:
+        - lambda: id(cat_became_safe) = false;
+
+  - platform: homeassistant
+    id: cat_ground_hall
+    entity_id: binary_sensor.cat_in_ground_hallway
+    on_state:
+      then:
+        - script.execute: refresh_occupancy
+
+  - platform: homeassistant
+    id: cat_snug
+    entity_id: binary_sensor.cat_in_snug
+    on_state:
+      then:
+        - script.execute: refresh_occupancy
+
+  - platform: homeassistant
+    id: cat_second_floor_hall
+    entity_id: binary_sensor.cat_in_second_floor_hallway
+    on_state:
+      then:
+        - script.execute: refresh_occupancy
+
+lvgl:
+  id: panel_ui
+  displays: panel
+  touchscreens: panel_touch
+  rotation: 270
+  buffer_size: 25%
+  bg_color: 0x101820
+  text_color: 0xF5F7FA
+  paused: true
+  resume_on_input: true
+  on_resume:
+    - light.turn_on: backlight
+  on_pause:
+    - light.turn_off: backlight
+  on_idle:
+    - timeout: 30s
+      then:
+        - if:
+            condition:
+              lambda: return !id(cat_forbidden);
+            then:
+              - lvgl.pause:
+
+  pages:
+    - id: presence_page
+      bg_color: 0x101820
+      widgets:
+        - label:
+            x: 8
+            y: 6
+            text: "PRESENCE"
+            text_font: montserrat_20
+            text_color: 0xF5F7FA
+        - label:
+            id: clock_label
+            x: 252
+            y: 5
+            width: 60
+            text: "--:--"
+            text_align: RIGHT
+            text_font: montserrat_20
+            text_color: 0xF5F7FA
+        - obj:
+            id: cat_card
+            x: 8
+            y: 34
+            width: 98
+            height: 72
+            bg_color: 0x8A6116
+            border_width: 0
+            radius: 10
+            pad_all: 8
+            scrollable: false
+            widgets:
+              - label:
+                  x: 0
+                  y: 0
+                  width: 82
+                  text: "CAT"
+                  text_font: montserrat_8
+                  text_color: 0xF5F7FA
+              - label:
+                  id: cat_location_label
+                  x: 0
+                  y: 22
+                  width: 82
+                  text: "Waiting..."
+                  text_font: montserrat_10
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+              - label:
+                  id: cat_safety_label
+                  x: 0
+                  y: 48
+                  width: 82
+                  text: "CONNECTING TO HA"
+                  text_font: montserrat_8
+                  text_color: 0xFFFFFF
+        - obj:
+            id: iphone_card
+            x: 111
+            y: 34
+            width: 98
+            height: 72
+            bg_color: 0x1D4058
+            border_width: 0
+            radius: 10
+            pad_all: 8
+            scrollable: false
+            widgets:
+              - label:
+                  x: 0
+                  y: 0
+                  width: 82
+                  text: "ABHI'S IPHONE"
+                  text_font: montserrat_8
+                  text_color: 0xA7B0B8
+              - label:
+                  id: iphone_location_label
+                  x: 0
+                  y: 23
+                  width: 82
+                  height: 38
+                  text: "Waiting..."
+                  text_font: montserrat_10
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+        - obj:
+            id: spare_presence_card
+            x: 214
+            y: 34
+            width: 98
+            height: 72
+            bg_color: 0x25313A
+            border_width: 0
+            radius: 10
+            pad_all: 8
+            scrollable: false
+        - buttonmatrix:
+            id: room_matrix
+            x: 8
+            y: 112
+            width: 304
+            height: 92
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            pad_row: 4
+            pad_column: 4
+            items:
+              bg_color: 0x25313A
+              border_width: 0
+              radius: 7
+              text_color: 0xFFFFFF
+              text_font: montserrat_8
+              pressed:
+                bg_color: 0x36505E
+              checked:
+                bg_color: 0x9C2634
+              disabled:
+                bg_color: 0x8A6116
+                text_opa: 100%
+            rows:
+              - buttons:
+                  - text: "G Hall\n--"
+                    control:
+                      recolor: true
+                      no_repeat: true
+                  - text: "Snug\n--"
+                    control:
+                      recolor: true
+                      no_repeat: true
+                  - text: "2F Hall\n--"
+                    control:
+                      recolor: true
+                      no_repeat: true
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+              - buttons:
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+                  - text: " "
+                    control:
+                      recolor: true
+                      hidden: true
+                      no_repeat: true
+    - id: actions_page
+      bg_color: 0x101820
+      widgets:
+        - label:
+            x: 8
+            y: 6
+            text: "HOME ACTIONS"
+            text_font: montserrat_20
+            text_color: 0xF5F7FA
+        - label:
+            x: 310
+            y: 10
+            align: TOP_RIGHT
+            text: "Managed in Home Assistant"
+            text_font: montserrat_14
+            text_color: 0xA7B0B8
+        - button:
+            x: 8
+            y: 38
+            width: 96
+            height: 76
+            bg_color: 0x1D4058
+            radius: 9
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data:
+                    slot: "1"
+            widgets:
+              - label:
+                  id: action_label_1
+                  align: CENTER
+                  width: 82
+                  text: "Action 1"
+                  text_font: montserrat_12
+                  text_align: CENTER
+                  long_mode: WRAP
+        - button:
+            x: 112
+            y: 38
+            width: 96
+            height: 76
+            bg_color: 0x1D4058
+            radius: 9
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data:
+                    slot: "2"
+            widgets:
+              - label:
+                  id: action_label_2
+                  align: CENTER
+                  width: 82
+                  text: "Action 2"
+                  text_font: montserrat_12
+                  text_align: CENTER
+                  long_mode: WRAP
+        - button:
+            x: 216
+            y: 38
+            width: 96
+            height: 76
+            bg_color: 0x1D4058
+            radius: 9
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data:
+                    slot: "3"
+            widgets:
+              - label:
+                  id: action_label_3
+                  align: CENTER
+                  width: 82
+                  text: "Action 3"
+                  text_font: montserrat_12
+                  text_align: CENTER
+                  long_mode: WRAP
+        - button:
+            x: 8
+            y: 122
+            width: 96
+            height: 76
+            bg_color: 0x1D4058
+            radius: 9
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data:
+                    slot: "4"
+            widgets:
+              - label:
+                  id: action_label_4
+                  align: CENTER
+                  width: 82
+                  text: "Action 4"
+                  text_font: montserrat_12
+                  text_align: CENTER
+                  long_mode: WRAP
+        - button:
+            x: 112
+            y: 122
+            width: 96
+            height: 76
+            bg_color: 0x1D4058
+            radius: 9
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data:
+                    slot: "5"
+            widgets:
+              - label:
+                  id: action_label_5
+                  align: CENTER
+                  width: 82
+                  text: "Action 5"
+                  text_font: montserrat_12
+                  text_align: CENTER
+                  long_mode: WRAP
+        - button:
+            x: 216
+            y: 122
+            width: 96
+            height: 76
+            bg_color: 0x1D4058
+            radius: 9
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data:
+                    slot: "6"
+            widgets:
+              - label:
+                  id: action_label_6
+                  align: CENTER
+                  width: 82
+                  text: "Action 6"
+                  text_font: montserrat_12
+                  text_align: CENTER
+                  long_mode: WRAP
+  top_layer:
+    widgets:
+      - buttonmatrix:
+          align: BOTTOM_MID
+          width: 320
+          height: 30
+          pad_all: 0
+          outline_width: 0
+          border_width: 0
+          bg_color: 0x17232C
+          items:
+            bg_color: 0x17232C
+            border_width: 0
+            radius: 0
+            text_color: 0xF5F7FA
+            text_font: montserrat_14
+            pressed:
+              bg_color: 0x1D4058
+          rows:
+            - buttons:
+                - text: "PRESENCE"
+                  on_press:
+                    - lvgl.page.show: presence_page
+                - text: "ACTIONS"
+                  on_press:
+                    - lvgl.page.show: actions_page

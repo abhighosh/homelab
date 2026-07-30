@@ -3,12 +3,9 @@ services:
     image: ghcr.io/koush/scrypted:nvidia
     container_name: scrypted
     restart: unless-stopped
-    runtime: nvidia
     network_mode: host
     security_opt:
       - apparmor:unconfined
-    devices:
-      - /dev/dri:/dev/dri
     volumes:
       - /var/run/dbus:/var/run/dbus
       - /var/run/avahi-daemon/socket:/var/run/avahi-daemon/socket

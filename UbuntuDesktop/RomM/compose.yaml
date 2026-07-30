@@ -22,7 +22,10 @@ services:
       - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/config:/romm/config
       - ${ROMM_DATA_PATH:-/home/abhi/Docker/RomM/data}/redis:/redis-data
     ports:
-      - "${ROMM_TAILSCALE_IP:-100.118.235.83}:8080:8080"
+      # Tailscale Serve forwards tailnet port 8080 to this loopback-only
+      # listener after tailscale0 is ready. Never bind this directly to a
+      # Tailscale address: Docker starts earlier during boot and will not retry.
+      - "127.0.0.1:8080:8080"
     depends_on:
       romm-db:
         condition: service_healthy

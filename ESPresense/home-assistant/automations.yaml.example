@@ -1,0 +1,53 @@
+- id: panel_action_router
+  alias: "Panel action router"
+  description: >-
+    Routes display slots 1-9 to the corresponding editable Panel action script.
+  triggers:
+    - trigger: event
+      event_type: esphome.cat_panel_action
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ trigger.event.data.slot | string in
+           ['1', '2', '3', '4', '5', '6', '7', '8', '9'] }}
+  actions:
+    - action: script.turn_on
+      target:
+        entity_id: >-
+          script.panel_action_{{ trigger.event.data.slot | string }}
+  mode: queued
+  max: 10
+
+- id: roborock_home_assistant_schedule
+  alias: "Roborock · Scheduled clean"
+  description: >-
+    Starts the Roborock at the configured time when the master schedule and
+    the current weekday are enabled.
+  triggers:
+    - trigger: time
+      at: input_datetime.roborock_schedule_time
+  conditions:
+    - condition: state
+      entity_id: input_boolean.roborock_schedule_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {% set weekday_helpers = [
+          'input_boolean.roborock_schedule_monday',
+          'input_boolean.roborock_schedule_tuesday',
+          'input_boolean.roborock_schedule_wednesday',
+          'input_boolean.roborock_schedule_thursday',
+          'input_boolean.roborock_schedule_friday',
+          'input_boolean.roborock_schedule_saturday',
+          'input_boolean.roborock_schedule_sunday'
+        ] %}
+        {{ is_state(weekday_helpers[now().weekday()], 'on') }}
+    - condition: template
+      value_template: >-
+        {{ states('vacuum.roborock_q7_l5')
+           not in ['cleaning', 'returning', 'unavailable', 'unknown'] }}
+  actions:
+    - action: vacuum.start
+      target:
+        entity_id: vacuum.roborock_q7_l5
+  mode: single

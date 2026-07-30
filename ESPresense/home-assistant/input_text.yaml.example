@@ -1,0 +1,43 @@
+panel_action_1_label:
+  name: "Panel action 1 label"
+  initial: "Refresh cat"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_2_label:
+  name: "Panel action 2 label"
+  initial: "Refresh iPhone"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_3_label:
+  name: "Panel action 3 label"
+  initial: "Refresh presence"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_4_label:
+  name: "Panel action 4 label"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_5_label:
+  name: "Panel action 5 label"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_6_label:
+  name: "Panel action 6 label"
+  initial: "Unassigned"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_7_label:
+  name: "Panel action 7 label"
+  initial: "Unassigned"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_8_label:
+  name: "Panel action 8 label"
+  initial: "Unassigned"
+  max: 24
+  icon: mdi:gesture-tap-button
+panel_action_9_label:
+  name: "Panel action 9 label"
+  initial: "Unassigned"
+  max: 24
+  icon: mdi:gesture-tap-button

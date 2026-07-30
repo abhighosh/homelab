@@ -8,7 +8,7 @@ data_dir="$base_dir/data"
 umask 077
 mkdir -p "$secret_dir" "$data_dir"
 
-for account in frigate homeassistant healthcheck; do
+for account in frigate homeassistant espresense healthcheck; do
   password_file="$secret_dir/${account}_password"
   if [ ! -s "$password_file" ]; then
     openssl rand -base64 36 > "$password_file"
@@ -21,6 +21,8 @@ password_db="$secret_dir/passwords"
   tr -d '\n' < "$secret_dir/frigate_password"
   printf '\nhomeassistant:'
   tr -d '\n' < "$secret_dir/homeassistant_password"
+  printf '\nespresense:'
+  tr -d '\n' < "$secret_dir/espresense_password"
   printf '\nhealthcheck:'
   tr -d '\n' < "$secret_dir/healthcheck_password"
   printf '\n'

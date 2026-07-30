@@ -1,0 +1,190 @@
+- trigger:
+    - platform: state
+      entity_id: sensor.cat_collar_room
+      for:
+        seconds: 10
+  sensor:
+    - name: "Cat Collar Confirmed Room"
+      unique_id: "cat_collar_confirmed_room"
+      icon: mdi:cat
+      state: "{{ trigger.to_state.state }}"
+
+- binary_sensor:
+    - name: "Cat in Snug"
+      unique_id: "cat_in_snug"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'snug') }}"
+      delay_on:
+        seconds: 10
+      delay_off:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat' if is_state('sensor.cat_collar_room', 'snug')
+           else 'mdi:cat-side' }}
+
+    - name: "Cat in Ground Hallway"
+      unique_id: "cat_in_ground_hallway"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'ground_hallway') }}"
+      delay_on:
+        seconds: 5
+      delay_off:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat' if is_state('sensor.cat_collar_room', 'ground_hallway')
+           else 'mdi:cat-side' }}
+
+    - name: "Cat in Kitchen"
+      unique_id: "cat_in_kitchen"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'kitchen') }}"
+      delay_on:
+        seconds: 5
+      delay_off:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat' if is_state('sensor.cat_collar_room', 'kitchen')
+           else 'mdi:cat-side' }}
+
+    - name: "Cat in First Floor Hallway"
+      unique_id: "cat_in_first_floor_hallway"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'first_floor_hallway') }}"
+      delay_on:
+        seconds: 5
+      delay_off:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat' if is_state('sensor.cat_collar_room', 'first_floor_hallway')
+           else 'mdi:cat-side' }}
+
+    - name: "Cat in Master Bedroom"
+      unique_id: "cat_in_master_bedroom"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'master_bedroom') }}"
+      delay_on:
+        seconds: 10
+      delay_off:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat' if is_state('sensor.cat_collar_room', 'master_bedroom')
+           else 'mdi:cat-side' }}
+
+    - name: "Cat in Second Floor Hallway"
+      unique_id: "cat_in_second_floor_hallway"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'second_floor_hallway') }}"
+      delay_on:
+        seconds: 5
+      delay_off:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat' if is_state('sensor.cat_collar_room', 'second_floor_hallway')
+           else 'mdi:cat-side' }}
+
+    - name: "Cat in Ground Floor Living Room"
+      unique_id: "cat_in_ground_floor_living_room"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'ground_floor_living_room') }}"
+      delay_on: {seconds: 10}
+      delay_off: {seconds: 10}
+
+    - name: "Cat in First Floor Guest Double Bedroom"
+      unique_id: "cat_in_first_floor_guest_double_bedroom"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'first_floor_guest_double_bedroom') }}"
+      delay_on: {seconds: 10}
+      delay_off: {seconds: 10}
+
+    - name: "Cat in First Floor Study"
+      unique_id: "cat_in_first_floor_study"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'first_floor_study') }}"
+      delay_on: {seconds: 10}
+      delay_off: {seconds: 10}
+
+    - name: "Cat in Second Floor Green Bedroom"
+      unique_id: "cat_in_second_floor_green_bedroom"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'second_floor_green_bedroom') }}"
+      delay_on: {seconds: 10}
+      delay_off: {seconds: 10}
+
+    - name: "Cat in Second Floor Guest Ensuite"
+      unique_id: "cat_in_second_floor_guest_ensuite"
+      device_class: occupancy
+      state: "{{ is_state('sensor.cat_collar_room', 'second_floor_guest_ensuite') }}"
+      delay_on: {seconds: 10}
+      delay_off: {seconds: 10}
+
+    - name: "Cat in Forbidden Room"
+      unique_id: "cat_in_forbidden_room"
+      device_class: occupancy
+      state: >-
+        {% set room = states('sensor.cat_collar_room') %}
+        {% set allowed = [
+          'ground_hallway',
+          'kitchen',
+          'first_floor_hallway',
+          'bathroom',
+          'second_floor_hallway'
+        ] %}
+        {{ room in ['unknown', 'unavailable', 'not_home', '']
+           or room not in allowed }}
+      delay_on:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:alert-circle' if this.state == 'on' else 'mdi:shield-check' }}
+
+    - name: "Cat Not Detected"
+      unique_id: "cat_not_detected"
+      device_class: occupancy
+      state: >-
+        {{ states('sensor.cat_collar_room')
+           in ['unknown', 'unavailable', 'not_home', ''] }}
+      delay_on:
+        seconds: 10
+      icon: >-
+        {{ 'mdi:cat-off' if this.state == 'on' else 'mdi:cat' }}
+
+- sensor:
+    - name: "Panel Room Tiles"
+      unique_id: "cat_panel_room_tiles"
+      icon: mdi:view-grid
+      state: >-
+        {% macro code(entity, room, danger=false) -%}
+          {%- set value = states(entity) -%}
+          {%- if value in ['unknown', 'unavailable', 'not_home', ''] -%}?
+          {%- elif value == room -%}{{ 2 if danger else 1 }}
+          {%- else -%}0
+          {%- endif -%}
+        {%- endmacro %}
+        G Hall:{{ code('sensor.cat_collar_confirmed_room', 'ground_hallway') }}:{{ code('sensor.abhi_iphone_room', 'ground_hallway') }}|
+        Kitchen:{{ code('sensor.cat_collar_confirmed_room', 'kitchen') }}:{{ code('sensor.abhi_iphone_room', 'kitchen') }}|
+        Living:{{ code('sensor.cat_collar_confirmed_room', 'ground_floor_living_room', true) }}:{{ code('sensor.abhi_iphone_room', 'ground_floor_living_room') }}|
+        Snug:{{ code('sensor.cat_collar_confirmed_room', 'snug', true) }}:{{ code('sensor.abhi_iphone_room', 'snug') }}|
+        1F Hall:{{ code('sensor.cat_collar_confirmed_room', 'first_floor_hallway') }}:{{ code('sensor.abhi_iphone_room', 'first_floor_hallway') }}|
+        Master:{{ code('sensor.cat_collar_confirmed_room', 'master_bedroom', true) }}:{{ code('sensor.abhi_iphone_room', 'master_bedroom') }}|
+        Guest:{{ code('sensor.cat_collar_confirmed_room', 'first_floor_guest_double_bedroom', true) }}:{{ code('sensor.abhi_iphone_room', 'first_floor_guest_double_bedroom') }}|
+        Study:{{ code('sensor.cat_collar_confirmed_room', 'first_floor_study', true) }}:{{ code('sensor.abhi_iphone_room', 'first_floor_study') }}|
+        2F Hall:{{ code('sensor.cat_collar_confirmed_room', 'second_floor_hallway') }}:{{ code('sensor.abhi_iphone_room', 'second_floor_hallway') }}|
+        Green:{{ code('sensor.cat_collar_confirmed_room', 'second_floor_green_bedroom', true) }}:{{ code('sensor.abhi_iphone_room', 'second_floor_green_bedroom') }}|
+        Ensuite:{{ code('sensor.cat_collar_confirmed_room', 'second_floor_guest_ensuite', true) }}:{{ code('sensor.abhi_iphone_room', 'second_floor_guest_ensuite') }}
+
+    - name: "Panel Action Labels"
+      unique_id: "panel_action_labels"
+      icon: mdi:gesture-tap-button
+      state: >-
+        {{ states('input_text.panel_action_1_label') -}}|
+        {{- states('input_text.panel_action_2_label') -}}|
+        {{- states('input_text.panel_action_3_label') -}}|
+        {{- states('input_text.panel_action_4_label') }}
+        {{- ' ON' if is_state('input_boolean.roborock_schedule_enabled', 'on')
+            else ' OFF' -}}|
+        {{- states('input_text.panel_action_5_label') }}
+        {{- ' ON' if is_state('switch.garden_rodney_enable_schedule', 'on')
+            else ' OFF' -}}|
+        {{- states('input_text.panel_action_6_label') -}}|
+        {{- states('input_text.panel_action_7_label') -}}|
+        {{- states('input_text.panel_action_8_label') -}}|
+        {{- states('input_text.panel_action_9_label') }}

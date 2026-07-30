@@ -1,0 +1,91 @@
+panel_action_1:
+  alias: "Panel action 1 · Refresh cat location"
+  icon: mdi:cat
+  sequence:
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.cat_collar_room
+  mode: single
+
+panel_action_2:
+  alias: "Panel action 2 · Refresh Abhi's iPhone"
+  icon: mdi:cellphone-marker
+  sequence:
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.abhi_iphone_room
+  mode: single
+
+panel_action_3:
+  alias: "Panel action 3 · Refresh presence"
+  icon: mdi:map-marker-sync
+  sequence:
+    - action: homeassistant.update_entity
+      target:
+        entity_id:
+          - sensor.cat_collar_room
+          - sensor.abhi_iphone_room
+  mode: single
+
+panel_action_4:
+  alias: "Panel action 4 · Toggle Roborock schedule"
+  description: "Toggles the Home Assistant-managed Roborock cleaning schedule."
+  icon: mdi:calendar-sync
+  sequence:
+    - action: input_boolean.toggle
+      target:
+        entity_id: input_boolean.roborock_schedule_enabled
+  mode: single
+
+panel_action_5:
+  alias: "Panel action 5 · Toggle Husqvarna schedule"
+  description: "Toggles the Husqvarna mower's native schedule switch."
+  icon: mdi:robot-mower
+  sequence:
+    - action: switch.toggle
+      target:
+        entity_id: switch.garden_rodney_enable_schedule
+  mode: single
+
+panel_action_6:
+  alias: "Panel action 6 · Unassigned"
+  icon: mdi:gesture-tap-button
+  sequence:
+    - action: logbook.log
+      data:
+        name: "Panel"
+        message: "Unassigned panel action 6 pressed"
+  mode: single
+
+panel_action_7:
+  alias: "Panel action 7 · Unassigned"
+  description: "Replace this sequence in Home Assistant before using panel button 7."
+  icon: mdi:gesture-tap-button
+  sequence:
+    - action: logbook.log
+      data:
+        name: "Panel"
+        message: "Unassigned panel action 7 pressed"
+  mode: single
+
+panel_action_8:
+  alias: "Panel action 8 · Unassigned"
+  description: "Replace this sequence in Home Assistant before using panel button 8."
+  icon: mdi:gesture-tap-button
+  sequence:
+    - action: logbook.log
+      data:
+        name: "Panel"
+        message: "Unassigned panel action 8 pressed"
+  mode: single
+
+panel_action_9:
+  alias: "Panel action 9 · Unassigned"
+  description: "Replace this sequence in Home Assistant before using panel button 9."
+  icon: mdi:gesture-tap-button
+  sequence:
+    - action: logbook.log
+      data:
+        name: "Panel"
+        message: "Unassigned panel action 9 pressed"
+  mode: single

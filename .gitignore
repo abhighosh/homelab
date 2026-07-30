@@ -5,6 +5,7 @@
 **/compose.env
 **/*.secret
 **/secrets/
+**/secrets.yaml
 
 # Service runtime state
 /stacks/
@@ -16,6 +17,8 @@ UptimeKuma/data/
 Ntfy/data/
 Ntfy/bootstrap/
 HomeAssistant/config/
+ESPresense/data/
+ESPresense/display/config/.esphome/
 UbuntuDesktop/Glances/config/
 UbuntuDesktop/Scrypted/volume/
 UbuntuDesktop/Frigate/data/

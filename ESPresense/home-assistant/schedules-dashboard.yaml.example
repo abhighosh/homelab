@@ -1,0 +1,63 @@
+title: Schedules
+views:
+  - title: Equipment
+    path: equipment
+    icon: mdi:calendar-clock
+    cards:
+      - type: entities
+        title: "Roborock schedule"
+        icon: mdi:robot-vacuum
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: vacuum.roborock_q7_l5
+            name: "Roborock"
+          - entity: sensor.roborock_q7_l5_status
+            name: "Status"
+          - entity: sensor.roborock_q7_l5_battery
+            name: "Battery"
+          - entity: input_boolean.roborock_schedule_enabled
+            name: "Schedule enabled"
+          - entity: input_datetime.roborock_schedule_time
+            name: "Start time"
+          - type: section
+            label: "Cleaning days"
+          - entity: input_boolean.roborock_schedule_monday
+            name: "Monday"
+          - entity: input_boolean.roborock_schedule_tuesday
+            name: "Tuesday"
+          - entity: input_boolean.roborock_schedule_wednesday
+            name: "Wednesday"
+          - entity: input_boolean.roborock_schedule_thursday
+            name: "Thursday"
+          - entity: input_boolean.roborock_schedule_friday
+            name: "Friday"
+          - entity: input_boolean.roborock_schedule_saturday
+            name: "Saturday"
+          - entity: input_boolean.roborock_schedule_sunday
+            name: "Sunday"
+          - entity: automation.roborock_scheduled_clean
+            name: "Schedule automation"
+
+      - type: entities
+        title: "Husqvarna schedule"
+        icon: mdi:robot-mower
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: lawn_mower.garden_rodney
+            name: "Rodney"
+          - entity: switch.garden_rodney_enable_schedule
+            name: "Schedule enabled"
+          - entity: calendar.garden_rodney
+            name: "Schedule"
+          - entity: sensor.garden_rodney_next_start
+            name: "Next start"
+          - entity: sensor.garden_rodney_mode
+            name: "Mode"
+          - entity: sensor.garden_rodney_battery
+            name: "Battery"
+          - entity: sensor.garden_rodney_error
+            name: "Error"
+          - entity: select.garden_rodney_headlight_mode
+            name: "Headlight mode"

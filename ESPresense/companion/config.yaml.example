@@ -1,0 +1,11 @@
+# Copy to /home/abhi/Docker/ESPresense/data/config.yaml only when deploying
+# Companion. Never commit the copy: it contains the MQTT password.
+mqtt:
+  host: 192.168.0.220
+  port: 1883
+  username: espresense
+  password: REPLACE_WITH_MOSQUITTO_ESPRESENSE_PASSWORD
+  ssl: false
+
+# Add floors, rooms, walls, and node coordinates through Companion after
+# measuring the house. Companion hot-reloads this file.

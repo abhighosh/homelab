@@ -1,0 +1,1613 @@
+esphome:
+  name: crowpanel-dashboard-01
+  friendly_name: CrowPanel Dashboard
+  min_version: 2026.7.2
+  project:
+    name: homelab.crowpanel-dashboard
+    version: dashboard-13
+  on_boot:
+    - priority: 600
+      then:
+        - lambda: |-
+            const uint8_t touch_enable = 250;
+            id(board_controller).write(&touch_enable, 1);
+        - delay: 250ms
+        - lambda: |-
+            const uint8_t compatible_brightness = 16;
+            id(board_controller).write(&compatible_brightness, 1);
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    advanced:
+      # Elecrow's factory package runs the N16R8 module's octal PSRAM at
+      # 120 MHz. The hardware test confirmed this is stable on this panel.
+      enable_idf_experimental_features: true
+
+psram:
+  mode: octal
+  speed: 120MHz
+  ignore_not_found: false
+
+logger:
+  hardware_uart: UART0
+  level: INFO
+
+api:
+  encryption:
+    key: !secret cat_panel_01_api_key
+
+ota:
+  - platform: esphome
+    password: !secret cat_panel_01_ota_password
+
+wifi:
+  ap:
+    ssid: CrowPanel Dashboard Setup
+    password: !secret cat_panel_01_fallback_password
+
+captive_portal:
+
+i2c:
+  id: panel_i2c
+  sda: GPIO15
+  scl: GPIO16
+  frequency: 400kHz
+  scan: true
+
+i2c_device:
+  id: board_controller
+  i2c_id: panel_i2c
+  address: 0x30
+
+display:
+  - platform: rpi_dpi_rgb
+    id: panel
+    dimensions:
+      width: 800
+      height: 480
+    color_order: RGB
+    pclk_frequency: 18MHz
+    pclk_inverted: true
+    de_pin: GPIO42
+    hsync_pin: GPIO40
+    vsync_pin: GPIO41
+    pclk_pin: GPIO39
+    hsync_pulse_width: 4
+    hsync_front_porch: 8
+    hsync_back_porch: 8
+    vsync_pulse_width: 4
+    vsync_front_porch: 8
+    vsync_back_porch: 8
+    data_pins:
+      red: [GPIO7, GPIO17, GPIO18, GPIO3, GPIO46]
+      green: [GPIO9, GPIO10, GPIO11, GPIO12, GPIO13, GPIO14]
+      blue: [GPIO21, GPIO47, GPIO48, GPIO45, GPIO38]
+    auto_clear_enabled: false
+    update_interval: never
+
+touchscreen:
+  - platform: gt911
+    id: panel_touch
+    display: panel
+    i2c_id: panel_i2c
+    address: 0x5D
+    update_interval: 50ms
+    on_touch:
+      - script.execute: backlight_active
+
+time:
+  - platform: homeassistant
+    id: ha_time
+    on_time_sync:
+      - script.execute: refresh_clock
+    on_time:
+      - seconds: 0
+        minutes: "*"
+        then:
+          - script.execute: refresh_clock
+
+globals:
+  - id: cat_unsafe
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: cat_attention
+    type: bool
+    restore_value: false
+    initial_value: "true"
+
+script:
+  - id: backlight_active
+    then:
+      - lambda: |-
+          const uint8_t active_brightness = 16;
+          id(board_controller).write(&active_brightness, 1);
+          ESP_LOGI("backlight", "Active brightness");
+
+  - id: backlight_dim
+    then:
+      - lambda: |-
+          // This panel's controller uses Elecrow's legacy 5..16 range:
+          // 5 is off and 16 is maximum brightness.
+          const uint8_t idle_brightness = 6;
+          id(board_controller).write(&idle_brightness, 1);
+          ESP_LOGI("backlight", "Idle brightness");
+
+  - id: refresh_clock
+    then:
+      - lvgl.label.update:
+          id: clock_label
+          text: !lambda |-
+            auto now = id(ha_time).now();
+            return now.is_valid() ? now.strftime("%H:%M") : std::string("--:--");
+
+  - id: refresh_cat_cards
+    then:
+      - lambda: |-
+          id(cat_attention) =
+            id(cat_unsafe) ||
+            !id(cat_room).has_state() ||
+            id(cat_room).state.empty() ||
+            id(cat_room).state == "unknown" ||
+            id(cat_room).state == "unavailable" ||
+            id(cat_room).state == "not_home";
+      - if:
+          condition:
+            lambda: return id(cat_attention);
+          then:
+            - script.execute: backlight_active
+          else:
+            - if:
+                condition:
+                  lvgl.is_idle:
+                    timeout: 60s
+                then:
+                  - script.execute: backlight_dim
+      - if:
+          condition:
+            lambda: |-
+              return !id(cat_room).has_state() ||
+                     id(cat_room).state.empty() ||
+                     id(cat_room).state == "unknown" ||
+                     id(cat_room).state == "unavailable" ||
+                     id(cat_room).state == "not_home";
+          then:
+            - lvgl.label.update:
+                id: cat_location_label
+                text: "Not detected"
+            - lvgl.label.update:
+                id: cat_safety_label
+                text: "CHECK COLLAR"
+            - lvgl.widget.update:
+                id: cat_card
+                bg_color: 0x9C2634
+          else:
+            - lvgl.label.update:
+                id: cat_location_label
+                text: !lambda |-
+                  std::string room = id(cat_room).state;
+                  for (auto &c : room) if (c == '_') c = ' ';
+                  bool cap = true;
+                  for (auto &c : room) {
+                    if (cap && c >= 'a' && c <= 'z') c -= 32;
+                    cap = (c == ' ');
+                  }
+                  return room;
+            - if:
+                condition:
+                  lambda: return id(cat_unsafe);
+                then:
+                  - lvgl.label.update:
+                      id: cat_safety_label
+                      text: "FORBIDDEN ROOM"
+                  - lvgl.widget.update:
+                      id: cat_card
+                      bg_color: 0x9C2634
+                else:
+                  - lvgl.label.update:
+                      id: cat_safety_label
+                      text: "SAFE"
+                  - lvgl.widget.update:
+                      id: cat_card
+                      bg_color: 0x176B4D
+
+  - id: refresh_schedule_controls
+    then:
+      - if:
+          condition:
+            lambda: return id(roborock_schedule_enabled).has_state();
+          then:
+            - lvgl.widget.update:
+                id: overview_roborock_schedule_switch
+                state:
+                  checked: !lambda return id(roborock_schedule_enabled).state;
+            - lvgl.label.update:
+                id: overview_roborock_schedule_label
+                text: !lambda |-
+                  return id(roborock_schedule_enabled).state
+                    ? std::string("SCHEDULED") : std::string("OFF");
+      - if:
+          condition:
+            lambda: return id(husqvarna_schedule_enabled).has_state();
+          then:
+            - lvgl.widget.update:
+                id: overview_husqvarna_schedule_switch
+                state:
+                  checked: !lambda return id(husqvarna_schedule_enabled).state;
+            - lvgl.label.update:
+                id: overview_husqvarna_schedule_label
+                text: !lambda |-
+                  return id(husqvarna_schedule_enabled).state
+                    ? std::string("SCHEDULED") : std::string("OFF");
+
+  - id: update_room_tiles
+    parameters:
+      data: string
+    then:
+      - lambda: |-
+          static std::string labels[12];
+          static const char *map[16];
+          auto trim = [](std::string &value) {
+            const auto first = value.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) {
+              value.clear();
+              return;
+            }
+            const auto last = value.find_last_not_of(" \t\r\n");
+            value = value.substr(first, last - first + 1);
+          };
+          size_t start = 0;
+          for (int i = 0; i < 12; i++) {
+            std::string name{" "};
+            std::string cat_state;
+            std::string phone_state{"0"};
+            if (start < data.size()) {
+              size_t end = data.find('|', start);
+              if (end == std::string::npos) end = data.size();
+              std::string entry = data.substr(start, end - start);
+              start = end + 1;
+              size_t first_separator = entry.find(':');
+              if (first_separator != std::string::npos && first_separator > 0) {
+                name = entry.substr(0, first_separator);
+                size_t second_separator = entry.find(':', first_separator + 1);
+                if (second_separator == std::string::npos) {
+                  cat_state = entry.substr(first_separator + 1);
+                } else {
+                  cat_state = entry.substr(
+                    first_separator + 1,
+                    second_separator - first_separator - 1);
+                  phone_state = entry.substr(second_separator + 1);
+                }
+                trim(name);
+                trim(cat_state);
+                trim(phone_state);
+                if (name.empty()) name = " ";
+              }
+            }
+
+            labels[i] = name;
+            if (cat_state == "1") labels[i] += "\n#34D399 C#";
+            if (cat_state == "2") labels[i] += "\n#FFB4B4 C#";
+            if (phone_state == "1") {
+              labels[i] += (cat_state == "1" || cat_state == "2")
+                ? "  #60A5FA A#" : "\n#60A5FA A#";
+            }
+            if (cat_state == "?" && phone_state == "?") labels[i] += "\n?";
+
+            lv_buttonmatrix_clear_button_ctrl(
+              id(room_matrix)->obj, i,
+              static_cast<lv_buttonmatrix_ctrl_t>(
+                LV_BUTTONMATRIX_CTRL_CHECKED |
+                LV_BUTTONMATRIX_CTRL_DISABLED |
+                LV_BUTTONMATRIX_CTRL_HIDDEN));
+            if (cat_state == "2") {
+              lv_buttonmatrix_set_button_ctrl(
+                id(room_matrix)->obj, i, LV_BUTTONMATRIX_CTRL_CHECKED);
+            } else if (cat_state == "?" && phone_state == "?") {
+              lv_buttonmatrix_set_button_ctrl(
+                id(room_matrix)->obj, i, LV_BUTTONMATRIX_CTRL_DISABLED);
+            } else if (name == " ") {
+              lv_buttonmatrix_set_button_ctrl(
+                id(room_matrix)->obj, i, LV_BUTTONMATRIX_CTRL_HIDDEN);
+            }
+          }
+          map[0] = labels[0].c_str();
+          map[1] = labels[1].c_str();
+          map[2] = labels[2].c_str();
+          map[3] = labels[3].c_str();
+          map[4] = "\n";
+          map[5] = labels[4].c_str();
+          map[6] = labels[5].c_str();
+          map[7] = labels[6].c_str();
+          map[8] = labels[7].c_str();
+          map[9] = "\n";
+          map[10] = labels[8].c_str();
+          map[11] = labels[9].c_str();
+          map[12] = labels[10].c_str();
+          map[13] = labels[11].c_str();
+          map[14] = "";
+          map[15] = nullptr;
+          lv_buttonmatrix_set_map(id(room_matrix)->obj, map);
+
+text_sensor:
+  - platform: homeassistant
+    id: cat_room
+    entity_id: sensor.cat_collar_confirmed_room
+    on_value:
+      then:
+        - script.execute: refresh_cat_cards
+
+  - platform: homeassistant
+    id: iphone_room
+    entity_id: sensor.abhi_iphone_room
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: iphone_location_label
+            text: !lambda |-
+              std::string room = x;
+              if (room.empty() || room == "unknown" ||
+                  room == "unavailable" || room == "not_home") {
+                return std::string("Not detected");
+              }
+              for (auto &c : room) if (c == '_') c = ' ';
+              bool cap = true;
+              for (auto &c : room) {
+                if (cap && c >= 'a' && c <= 'z') c -= 32;
+                cap = (c == ' ');
+              }
+              return room;
+
+  - platform: homeassistant
+    id: room_tiles
+    entity_id: sensor.cat_panel_room_tiles
+    on_value:
+      then:
+        - script.execute:
+            id: update_room_tiles
+            data: !lambda return x;
+
+  - platform: homeassistant
+    id: roborock_status
+    entity_id: sensor.roborock_q7_l5_status
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_roborock_status_label
+            text: !lambda |-
+              std::string value = x;
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              bool cap = true;
+              for (auto &c : value) {
+                if (cap && c >= 'a' && c <= 'z') c -= 32;
+                cap = (c == ' ');
+              }
+              return value;
+        - lvgl.label.update:
+            id: overview_roborock_toggle_status_label
+            text: !lambda |-
+              std::string value = x;
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              bool cap = true;
+              for (auto &c : value) {
+                if (cap && c >= 'a' && c <= 'z') c -= 32;
+                cap = (c == ' ');
+              }
+              return value;
+
+  - platform: homeassistant
+    id: husqvarna_status
+    entity_id: lawn_mower.garden_rodney
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_husqvarna_status_label
+            text: !lambda |-
+              std::string value = x;
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              bool cap = true;
+              for (auto &c : value) {
+                if (cap && c >= 'a' && c <= 'z') c -= 32;
+                cap = (c == ' ');
+              }
+              return value;
+        - lvgl.label.update:
+            id: overview_husqvarna_toggle_status_label
+            text: !lambda |-
+              std::string value = x;
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              bool cap = true;
+              for (auto &c : value) {
+                if (cap && c >= 'a' && c <= 'z') c -= 32;
+                cap = (c == ' ');
+              }
+              return value;
+
+  - platform: homeassistant
+    id: action_labels
+    entity_id: sensor.panel_action_labels
+    on_value:
+      then:
+        - lambda: |-
+            lv_obj_t *labels[] = {
+              id(action_label_1), id(action_label_2), id(action_label_3),
+              id(action_label_4), id(action_label_5), id(action_label_6),
+              id(action_label_7), id(action_label_8), id(action_label_9)
+            };
+            size_t start = 0;
+            for (int i = 0; i < 9; i++) {
+              if (start >= x.size()) break;
+              size_t end = x.find('|', start);
+              if (end == std::string::npos) end = x.size();
+              std::string label = x.substr(start, end - start);
+              if (!label.empty()) lv_label_set_text(labels[i], label.c_str());
+              start = end + 1;
+            }
+
+  - platform: homeassistant
+    id: weather_state
+    entity_id: weather.forecast_home
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_weather_label
+            text: !lambda |-
+              std::string value = x;
+              if (value == "partlycloudy") return std::string("Partly cloudy");
+              if (value == "clear-night") return std::string("Clear night");
+              if (value == "lightning-rainy") return std::string("Thunderstorms");
+              if (value == "pouring") return std::string("Heavy rain");
+              if (value == "exceptional") return std::string("Weather alert");
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              if (!value.empty()) value[0] = toupper(value[0]);
+              return value;
+        - lvgl.label.update:
+            id: climate_weather_condition_label
+            text: !lambda |-
+              std::string value = x;
+              if (value == "partlycloudy") return std::string("Partly cloudy");
+              if (value == "clear-night") return std::string("Clear night");
+              if (value == "lightning-rainy") return std::string("Thunderstorms");
+              if (value == "pouring") return std::string("Heavy rain");
+              if (value == "exceptional") return std::string("Weather alert");
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              if (!value.empty()) value[0] = toupper(value[0]);
+              return value;
+        - if:
+            condition:
+              lambda: return x == "sunny" || x == "clear-night";
+            then:
+              - lvgl.image.update:
+                  id: climate_weather_icon
+                  src: weather_sunny_icon
+            else:
+              - if:
+                  condition:
+                    lambda: return x == "rainy" || x == "pouring";
+                  then:
+                    - lvgl.image.update:
+                        id: climate_weather_icon
+                        src: weather_rainy_icon
+                  else:
+                    - if:
+                        condition:
+                          lambda: return x == "lightning" || x == "lightning-rainy";
+                        then:
+                          - lvgl.image.update:
+                              id: climate_weather_icon
+                              src: weather_lightning_icon
+                        else:
+                          - if:
+                              condition:
+                                lambda: return x == "snowy" || x == "snowy-rainy";
+                              then:
+                                - lvgl.image.update:
+                                    id: climate_weather_icon
+                                    src: weather_snowy_icon
+                              else:
+                                - if:
+                                    condition:
+                                      lambda: return x == "fog";
+                                    then:
+                                      - lvgl.image.update:
+                                          id: climate_weather_icon
+                                          src: weather_fog_icon
+                                    else:
+                                      - if:
+                                          condition:
+                                            lambda: return x == "partlycloudy";
+                                          then:
+                                            - lvgl.image.update:
+                                                id: climate_weather_icon
+                                                src: weather_partly_cloudy_icon
+                                          else:
+                                            - lvgl.image.update:
+                                                id: climate_weather_icon
+                                                src: weather_cloudy_icon
+
+  - platform: homeassistant
+    id: heating_mode
+    entity_id: sensor.thermostat_2_mode
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: heating_mode_label
+            text: !lambda |-
+              std::string value = x;
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              if (!value.empty()) value[0] = toupper(value[0]);
+              return value;
+
+  - platform: homeassistant
+    id: hot_water_mode
+    entity_id: sensor.thermostat_2_hotwater_mode
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: hot_water_mode_label
+            text: !lambda |-
+              std::string value = x;
+              for (auto &c : value) if (c == '_' || c == '-') c = ' ';
+              if (!value.empty()) value[0] = toupper(value[0]);
+              return value;
+
+  - platform: homeassistant
+    id: heating_state
+    entity_id: binary_sensor.thermostat_2_state
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: heating_state_label
+            text: !lambda |-
+              return x == "on" ? std::string("ON") : std::string("OFF");
+        - lvgl.label.update:
+            id: overview_heating_state_label
+            text: !lambda |-
+              return x == "on" ? std::string("Heating on") : std::string("Heating off");
+        - lvgl.widget.update:
+            id: heating_card
+            bg_color: !lambda |-
+              return lv_color_hex(x == "on" ? 0x734216 : 0x25313A);
+
+  - platform: homeassistant
+    id: hot_water_state
+    entity_id: binary_sensor.thermostat_2_hotwater_state
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: hot_water_state_label
+            text: !lambda |-
+              return x == "on" ? std::string("ON") : std::string("OFF");
+        - lvgl.label.update:
+            id: overview_hot_water_state_label
+            text: !lambda |-
+              return x == "on" ? std::string("Hot water on") : std::string("Hot water off");
+        - lvgl.widget.update:
+            id: hot_water_card
+            bg_color: !lambda |-
+              return lv_color_hex(x == "on" ? 0x174F73 : 0x25313A);
+
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+
+binary_sensor:
+  - platform: homeassistant
+    id: cat_in_forbidden_room
+    entity_id: binary_sensor.cat_in_forbidden_room
+    on_state:
+      then:
+        - lambda: id(cat_unsafe) = x;
+        - script.execute: refresh_cat_cards
+
+  - platform: homeassistant
+    id: roborock_schedule_enabled
+    entity_id: input_boolean.roborock_schedule_enabled
+    on_state:
+      then:
+        - script.execute: refresh_schedule_controls
+
+  - platform: homeassistant
+    id: husqvarna_schedule_enabled
+    entity_id: switch.garden_rodney_enable_schedule
+    on_state:
+      then:
+        - script.execute: refresh_schedule_controls
+
+sensor:
+  - platform: homeassistant
+    id: roborock_battery
+    entity_id: sensor.roborock_q7_l5_battery
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_roborock_battery_label
+            text:
+              format: "%.0f%%"
+              args: [x]
+
+  - platform: homeassistant
+    id: husqvarna_battery
+    entity_id: sensor.garden_rodney_battery
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_husqvarna_battery_label
+            text:
+              format: "%.0f%%"
+              args: [x]
+
+  - platform: homeassistant
+    id: current_temperature
+    entity_id: sensor.thermostat_2_current_temperature
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: current_temperature_label
+            text:
+              format: "%.1f°"
+              args: [x]
+
+  - platform: homeassistant
+    id: target_temperature
+    entity_id: sensor.thermostat_2_target_temperature
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: target_temperature_label
+            text:
+              format: "%.1f°"
+              args: [x]
+
+  - platform: homeassistant
+    id: hallway_temperature
+    entity_id: sensor.floor_0_hallway_hallway_temperature
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_hallway_temperature_label
+            text:
+              format: "%.1f°"
+              args: [x]
+        - lvgl.label.update:
+            id: climate_hallway_temperature_label
+            text:
+              format: "%.1f°"
+              args: [x]
+
+  - platform: homeassistant
+    id: outside_temperature
+    entity_id: weather.forecast_home
+    attribute: temperature
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_outside_temperature_label
+            text:
+              format: "%.1f°"
+              args: [x]
+        - lvgl.label.update:
+            id: climate_outside_temperature_label
+            text:
+              format: "%.1f°"
+              args: [x]
+
+  - platform: wifi_signal
+    name: Wi-Fi Signal
+    update_interval: 60s
+
+interval:
+  - interval: 10s
+    startup_delay: 3s
+    then:
+      - script.execute: refresh_schedule_controls
+
+image:
+  - platform: file
+    file: "mdi:weather-sunny"
+    id: weather_sunny_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+  - platform: file
+    file: "mdi:weather-partly-cloudy"
+    id: weather_partly_cloudy_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+  - platform: file
+    file: "mdi:weather-cloudy"
+    id: weather_cloudy_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+  - platform: file
+    file: "mdi:weather-rainy"
+    id: weather_rainy_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+  - platform: file
+    file: "mdi:weather-lightning-rainy"
+    id: weather_lightning_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+  - platform: file
+    file: "mdi:weather-snowy"
+    id: weather_snowy_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+  - platform: file
+    file: "mdi:weather-fog"
+    id: weather_fog_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 64x64
+
+button:
+  - platform: restart
+    name: Restart
+
+lvgl:
+  id: panel_ui
+  displays: panel
+  touchscreens: panel_touch
+  buffer_size: 25%
+  bg_color: 0x0B1220
+  text_color: 0xF8FAFC
+  resume_on_input: true
+  on_resume:
+    - script.execute: backlight_active
+  on_pause:
+    - script.execute: backlight_dim
+  on_idle:
+    - timeout: 60s
+      then:
+        - if:
+            condition:
+              lambda: return !id(cat_attention);
+            then:
+              - script.execute: backlight_dim
+  pages:
+    - id: overview_page
+      bg_color: 0x0B1220
+      widgets:
+        - label:
+            x: 24
+            y: 18
+            text: "HOME"
+            text_font: montserrat_28
+            text_color: 0x94A3B8
+        - label:
+            id: clock_label
+            x: 668
+            y: 14
+            width: 108
+            text: "--:--"
+            text_align: RIGHT
+            text_font: montserrat_32
+        - obj:
+            id: cat_card
+            x: 24
+            y: 58
+            width: 240
+            height: 120
+            bg_color: 0x8A6116
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 10
+                  text: "CAT"
+                  text_font: montserrat_16
+                  text_color: 0xD1FAE5
+              - label:
+                  id: cat_location_label
+                  x: 14
+                  y: 36
+                  width: 212
+                  text: "Waiting..."
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+              - label:
+                  id: cat_safety_label
+                  x: 14
+                  y: 88
+                  text: "CHECKING"
+                  text_font: montserrat_14
+                  text_color: 0xD1FAE5
+        - obj:
+            x: 280
+            y: 58
+            width: 240
+            height: 120
+            bg_color: 0x1D4058
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 10
+                  text: "ABHI'S IPHONE"
+                  text_font: montserrat_16
+                  text_color: 0xDBEAFE
+              - label:
+                  id: iphone_location_label
+                  x: 14
+                  y: 40
+                  width: 212
+                  text: "Waiting..."
+                  text_font: montserrat_20
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+        - obj:
+            x: 536
+            y: 194
+            width: 240
+            height: 102
+            bg_color: 0x172231
+            border_width: 1
+            border_color: 0x334155
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 5
+                  text: "ROBOROCK"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - label:
+                  id: overview_roborock_status_label
+                  x: 14
+                  y: 22
+                  width: 150
+                  text: "Waiting..."
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+              - label:
+                  id: overview_roborock_battery_label
+                  x: 170
+                  y: 23
+                  width: 56
+                  text: "--%"
+                  text_align: RIGHT
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - line:
+                  points:
+                    - 14, 48
+                    - 226, 48
+                  line_color: 0x334155
+                  line_width: 1
+              - label:
+                  x: 14
+                  y: 52
+                  text: "HUSQVARNA"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - label:
+                  id: overview_husqvarna_status_label
+                  x: 14
+                  y: 71
+                  width: 150
+                  text: "Waiting..."
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+              - label:
+                  id: overview_husqvarna_battery_label
+                  x: 170
+                  y: 72
+                  width: 56
+                  text: "--%"
+                  text_align: RIGHT
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+        - obj:
+            x: 24
+            y: 194
+            width: 240
+            height: 102
+            bg_color: 0x25313A
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 10
+                  text: "WEATHER"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - label:
+                  id: overview_outside_temperature_label
+                  x: 14
+                  y: 34
+                  text: "--.-°"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+              - label:
+                  id: overview_weather_label
+                  x: 84
+                  y: 43
+                  width: 142
+                  text: "Waiting..."
+                  text_font: montserrat_16
+                  text_color: 0xE2E8F0
+                  long_mode: DOT
+        - obj:
+            x: 280
+            y: 194
+            width: 240
+            height: 102
+            bg_color: 0x25313A
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 10
+                  text: "GROUND-FLOOR HALL"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - label:
+                  id: overview_hallway_temperature_label
+                  x: 14
+                  y: 36
+                  text: "--.-°"
+                  text_font: montserrat_28
+                  text_color: 0xFFFFFF
+        - obj:
+            x: 536
+            y: 58
+            width: 240
+            height: 120
+            bg_color: 0x25313A
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 10
+                  text: "HOME SYSTEMS"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - label:
+                  id: overview_heating_state_label
+                  x: 14
+                  y: 44
+                  width: 212
+                  text: "Heating --"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+              - label:
+                  id: overview_hot_water_state_label
+                  x: 14
+                  y: 76
+                  width: 212
+                  text: "Hot water --"
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+        - obj:
+            x: 24
+            y: 312
+            width: 368
+            height: 84
+            bg_color: 0x172231
+            border_width: 1
+            border_color: 0x334155
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 8
+                  text: "ROBOROCK SCHEDULE"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - switch:
+                  id: overview_roborock_schedule_switch
+                  x: 14
+                  y: 38
+                  width: 64
+                  height: 30
+                  bg_color: 0x374151
+                  checked:
+                    bg_color: 0x176B4D
+                  on_value:
+                    - if:
+                        condition:
+                          lambda: return x != id(roborock_schedule_enabled).state;
+                        then:
+                          - if:
+                              condition:
+                                lambda: return x;
+                              then:
+                                - homeassistant.action:
+                                    action: input_boolean.turn_on
+                                    data:
+                                      entity_id: input_boolean.roborock_schedule_enabled
+                              else:
+                                - homeassistant.action:
+                                    action: input_boolean.turn_off
+                                    data:
+                                      entity_id: input_boolean.roborock_schedule_enabled
+              - label:
+                  id: overview_roborock_schedule_label
+                  x: 88
+                  y: 44
+                  width: 106
+                  text: "OFF"
+                  text_font: montserrat_14
+                  text_color: 0xFFFFFF
+              - label:
+                  id: overview_roborock_toggle_status_label
+                  x: 204
+                  y: 43
+                  width: 148
+                  text: "Waiting..."
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xE2E8F0
+                  long_mode: DOT
+        - obj:
+            x: 408
+            y: 312
+            width: 368
+            height: 84
+            bg_color: 0x172231
+            border_width: 1
+            border_color: 0x334155
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 8
+                  text: "HUSQVARNA SCHEDULE"
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+              - switch:
+                  id: overview_husqvarna_schedule_switch
+                  x: 14
+                  y: 38
+                  width: 64
+                  height: 30
+                  bg_color: 0x374151
+                  checked:
+                    bg_color: 0x176B4D
+                  on_value:
+                    - if:
+                        condition:
+                          lambda: return x != id(husqvarna_schedule_enabled).state;
+                        then:
+                          - if:
+                              condition:
+                                lambda: return x;
+                              then:
+                                - homeassistant.action:
+                                    action: switch.turn_on
+                                    data:
+                                      entity_id: switch.garden_rodney_enable_schedule
+                              else:
+                                - homeassistant.action:
+                                    action: switch.turn_off
+                                    data:
+                                      entity_id: switch.garden_rodney_enable_schedule
+              - label:
+                  id: overview_husqvarna_schedule_label
+                  x: 88
+                  y: 44
+                  width: 106
+                  text: "OFF"
+                  text_font: montserrat_14
+                  text_color: 0xFFFFFF
+              - label:
+                  id: overview_husqvarna_toggle_status_label
+                  x: 204
+                  y: 43
+                  width: 148
+                  text: "Waiting..."
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xE2E8F0
+                  long_mode: DOT
+
+    - id: presence_page
+      bg_color: 0x0B1220
+      widgets:
+        - label:
+            x: 24
+            y: 18
+            text: "PRESENCE"
+            text_font: montserrat_28
+        - label:
+            x: 650
+            y: 24
+            width: 126
+            text: "C = Cat  A = Abhi"
+            text_align: RIGHT
+            text_font: montserrat_14
+            text_color: 0x94A3B8
+        - buttonmatrix:
+            id: room_matrix
+            x: 24
+            y: 68
+            width: 752
+            height: 328
+            bg_opa: TRANSP
+            border_width: 0
+            pad_all: 0
+            pad_row: 10
+            pad_column: 10
+            items:
+              bg_color: 0x25313A
+              border_width: 0
+              radius: 12
+              text_color: 0xFFFFFF
+              text_font: montserrat_16
+              pressed:
+                bg_color: 0x36505E
+              checked:
+                bg_color: 0x9C2634
+              disabled:
+                bg_color: 0x6B4F16
+                text_opa: 100%
+            rows:
+              - buttons:
+                  - {text: "Room 1\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 2\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 3\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 4\n--", control: {no_repeat: true, recolor: true}}
+              - buttons:
+                  - {text: "Room 5\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 6\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 7\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 8\n--", control: {no_repeat: true, recolor: true}}
+              - buttons:
+                  - {text: "Room 9\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 10\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 11\n--", control: {no_repeat: true, recolor: true}}
+                  - {text: "Room 12\n--", control: {no_repeat: true, recolor: true}}
+
+    - id: climate_page
+      bg_color: 0x0B1220
+      widgets:
+        - label:
+            x: 24
+            y: 18
+            text: "CLIMATE"
+            text_font: montserrat_28
+        - obj:
+            id: heating_card
+            x: 24
+            y: 58
+            width: 368
+            height: 168
+            bg_color: 0x25313A
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 16
+                  y: 12
+                  text: "HEATING"
+                  text_font: montserrat_16
+                  text_color: 0xCBD5E1
+              - label:
+                  id: heating_state_label
+                  x: 270
+                  y: 12
+                  width: 82
+                  text: "--"
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+              - label:
+                  x: 16
+                  y: 48
+                  text: "Current"
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - label:
+                  id: current_temperature_label
+                  x: 16
+                  y: 70
+                  text: "--.-°"
+                  text_font: montserrat_32
+                  text_color: 0xFFFFFF
+              - label:
+                  x: 152
+                  y: 48
+                  text: "Target"
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - label:
+                  id: target_temperature_label
+                  x: 152
+                  y: 70
+                  text: "--.-°"
+                  text_font: montserrat_32
+                  text_color: 0xFFFFFF
+              - label:
+                  x: 16
+                  y: 128
+                  text: "Mode"
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - label:
+                  id: heating_mode_label
+                  x: 72
+                  y: 128
+                  width: 280
+                  text: "--"
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+        - obj:
+            id: hot_water_card
+            x: 408
+            y: 58
+            width: 368
+            height: 168
+            bg_color: 0x25313A
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 16
+                  y: 12
+                  text: "HOT WATER"
+                  text_font: montserrat_16
+                  text_color: 0xCBD5E1
+              - label:
+                  id: hot_water_state_label
+                  x: 270
+                  y: 12
+                  width: 82
+                  text: "--"
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+              - label:
+                  x: 16
+                  y: 58
+                  text: "State"
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - label:
+                  x: 16
+                  y: 82
+                  text: "Controlled by thermostat"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+              - label:
+                  x: 16
+                  y: 128
+                  text: "Mode"
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - label:
+                  id: hot_water_mode_label
+                  x: 72
+                  y: 128
+                  width: 280
+                  text: "--"
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+        - obj:
+            x: 24
+            y: 242
+            width: 752
+            height: 154
+            bg_color: 0x1D4058
+            border_width: 0
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 16
+                  y: 12
+                  text: "WEATHER"
+                  text_font: montserrat_16
+                  text_color: 0xDBEAFE
+              - image:
+                  id: climate_weather_icon
+                  x: 30
+                  y: 52
+                  width: 64
+                  height: 64
+                  src: weather_cloudy_icon
+                  image_recolor: 0xFFFFFF
+                  image_recolor_opa: COVER
+              - label:
+                  id: climate_outside_temperature_label
+                  x: 132
+                  y: 42
+                  text: "--.-°"
+                  text_font: montserrat_36
+                  text_color: 0xFFFFFF
+              - label:
+                  id: climate_weather_condition_label
+                  x: 132
+                  y: 90
+                  width: 286
+                  text: "Waiting..."
+                  text_font: montserrat_18
+                  text_color: 0xE2E8F0
+                  long_mode: DOT
+              - label:
+                  x: 520
+                  y: 44
+                  width: 200
+                  text: "GROUND-FLOOR HALL"
+                  text_align: RIGHT
+                  text_font: montserrat_14
+                  text_color: 0x94A3B8
+              - label:
+                  id: climate_hallway_temperature_label
+                  x: 520
+                  y: 72
+                  width: 200
+                  text: "--.-°"
+                  text_align: RIGHT
+                  text_font: montserrat_32
+                  text_color: 0xFFFFFF
+
+    - id: actions_page
+      bg_color: 0x0B1220
+      widgets:
+        - label:
+            x: 24
+            y: 18
+            text: "HOME ACTIONS"
+            text_font: montserrat_28
+        - label:
+            x: 540
+            y: 24
+            width: 236
+            text: "Managed in Home Assistant"
+            text_align: RIGHT
+            text_font: montserrat_14
+            text_color: 0x94A3B8
+        - button:
+            x: 24
+            y: 68
+            width: 240
+            height: 98
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "1"}
+            widgets:
+              - label:
+                  id: action_label_1
+                  align: CENTER
+                  width: 200
+                  text: "Action 1"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 280
+            y: 68
+            width: 240
+            height: 98
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "2"}
+            widgets:
+              - label:
+                  id: action_label_2
+                  align: CENTER
+                  width: 200
+                  text: "Action 2"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 536
+            y: 68
+            width: 240
+            height: 98
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "3"}
+            widgets:
+              - label:
+                  id: action_label_3
+                  align: CENTER
+                  width: 200
+                  text: "Action 3"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 24
+            y: 182
+            width: 240
+            height: 98
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "4"}
+            widgets:
+              - label:
+                  id: action_label_4
+                  align: CENTER
+                  width: 200
+                  text: "Action 4"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 280
+            y: 182
+            width: 240
+            height: 98
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "5"}
+            widgets:
+              - label:
+                  id: action_label_5
+                  align: CENTER
+                  width: 200
+                  text: "Action 5"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 536
+            y: 182
+            width: 240
+            height: 98
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "6"}
+            widgets:
+              - label:
+                  id: action_label_6
+                  align: CENTER
+                  width: 200
+                  text: "Action 6"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 24
+            y: 296
+            width: 240
+            height: 100
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "7"}
+            widgets:
+              - label:
+                  id: action_label_7
+                  align: CENTER
+                  width: 200
+                  text: "Action 7"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 280
+            y: 296
+            width: 240
+            height: 100
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "8"}
+            widgets:
+              - label:
+                  id: action_label_8
+                  align: CENTER
+                  width: 200
+                  text: "Action 8"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+        - button:
+            x: 536
+            y: 296
+            width: 240
+            height: 100
+            bg_color: 0x1D4058
+            radius: 14
+            on_press:
+              - homeassistant.event:
+                  event: esphome.cat_panel_action
+                  data: {slot: "9"}
+            widgets:
+              - label:
+                  id: action_label_9
+                  align: CENTER
+                  width: 200
+                  text: "Action 9"
+                  text_align: CENTER
+                  text_font: montserrat_16
+                  long_mode: WRAP
+
+  top_layer:
+    widgets:
+      - buttonmatrix:
+          align: BOTTOM_MID
+          width: 800
+          height: 62
+          pad_all: 0
+          outline_width: 0
+          border_width: 0
+          bg_color: 0x111C2B
+          items:
+            bg_color: 0x111C2B
+            border_width: 0
+            radius: 0
+            text_color: 0xF8FAFC
+            text_font: montserrat_18
+            pressed:
+              bg_color: 0x1D4058
+          rows:
+            - buttons:
+                - text: "OVERVIEW"
+                  on_press:
+                    - lvgl.page.show: overview_page
+                - text: "PRESENCE"
+                  on_press:
+                    - lvgl.page.show: presence_page
+                - text: "CLIMATE"
+                  on_press:
+                    - lvgl.page.show: climate_page
+                - text: "ACTIONS"
+                  on_press:
+                    - lvgl.page.show: actions_page

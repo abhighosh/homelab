@@ -1,0 +1,81 @@
+title: Presence
+views:
+  - title: Tracking
+    path: tracking
+    icon: mdi:map-marker-account
+    cards:
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.cat_in_forbidden_room
+            state: "on"
+        card:
+          type: markdown
+          title: "Cat safety alert"
+          content: >-
+            ## Cat is unsafe or not detected
+
+            Check the reported room and locate the cat.
+
+      - type: entities
+        title: "Room presence"
+        icon: mdi:floor-plan
+        show_header_toggle: false
+        state_color: true
+        entities:
+          - entity: sensor.cat_collar_confirmed_room
+            name: "Cat collar location"
+            icon: mdi:cat
+            secondary_info: last-changed
+          - entity: sensor.abhi_iphone_room
+            name: "Abhi's iPhone location"
+            icon: mdi:cellphone-marker
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_snug
+            name: "Cat in snug"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_ground_hallway
+            name: "Cat in ground hallway"
+            icon: mdi:cat
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_kitchen
+            name: "Cat in kitchen"
+            icon: mdi:cat
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_first_floor_hallway
+            name: "Cat in first-floor hallway"
+            icon: mdi:cat
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_master_bedroom
+            name: "Cat in master bedroom"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_second_floor_hallway
+            name: "Cat in second-floor hallway"
+            icon: mdi:cat
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_ground_floor_living_room
+            name: "Cat in ground-floor living room"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_first_floor_guest_double_bedroom
+            name: "Cat in first-floor guest double bedroom"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_first_floor_study
+            name: "Cat in first-floor study"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_second_floor_green_bedroom
+            name: "Cat in second-floor green bedroom"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_in_second_floor_guest_ensuite
+            name: "Cat in second-floor guest ensuite"
+            icon: mdi:shield-alert
+            secondary_info: last-changed
+          - entity: binary_sensor.cat_not_detected
+            name: "Cat not detected"
+            icon: mdi:cat-off
+            secondary_info: last-changed

@@ -1,0 +1,75 @@
+# Merge these top-level keys into HomeAssistant/config/configuration.yaml.
+# If `sensor:`, `template:`, or `lovelace:` already exists, merge rather than
+# declaring the key twice.
+automation: !include automations.yaml
+script: !include scripts.yaml
+input_text: !include input_text.yaml
+input_boolean: !include input_boolean.yaml
+input_datetime: !include input_datetime.yaml
+sensor: !include sensors.yaml
+template: !include templates.yaml
+
+lovelace:
+  dashboards:
+    presence-tracking:
+      mode: yaml
+      filename: presence-dashboard.yaml
+      title: Presence
+      icon: mdi:map-marker-account
+      show_in_sidebar: true
+    equipment-schedules:
+      mode: yaml
+      filename: schedules-dashboard.yaml
+      title: Schedules
+      icon: mdi:calendar-clock
+      show_in_sidebar: true
+    panel-configuration:
+      mode: yaml
+      filename: panel-dashboard.yaml
+      title: Panel Configuration
+      icon: mdi:tablet-dashboard
+      show_in_sidebar: true
+
+# This remains separate from the UI-managed HASS Bridge on port 21064.
+homekit:
+  - name: "Cat Safety"
+    port: 21065
+    filter:
+      include_entities:
+        - binary_sensor.cat_in_snug
+        - binary_sensor.cat_in_ground_hallway
+        - binary_sensor.cat_in_kitchen
+        - binary_sensor.cat_in_first_floor_hallway
+        - binary_sensor.cat_in_master_bedroom
+        - binary_sensor.cat_in_second_floor_hallway
+        - binary_sensor.cat_in_ground_floor_living_room
+        - binary_sensor.cat_in_first_floor_guest_double_bedroom
+        - binary_sensor.cat_in_first_floor_study
+        - binary_sensor.cat_in_second_floor_green_bedroom
+        - binary_sensor.cat_in_second_floor_guest_ensuite
+        - binary_sensor.cat_not_detected
+    entity_config:
+      binary_sensor.cat_in_snug:
+        name: "Cat in Snug"
+      binary_sensor.cat_in_ground_hallway:
+        name: "Cat in Ground Hallway"
+      binary_sensor.cat_in_kitchen:
+        name: "Cat in Kitchen"
+      binary_sensor.cat_in_first_floor_hallway:
+        name: "Cat in First Floor Hallway"
+      binary_sensor.cat_in_master_bedroom:
+        name: "Cat in Master Bedroom"
+      binary_sensor.cat_in_second_floor_hallway:
+        name: "Cat in Second Floor Hallway"
+      binary_sensor.cat_in_ground_floor_living_room:
+        name: "Cat in Ground Floor Living Room"
+      binary_sensor.cat_in_first_floor_guest_double_bedroom:
+        name: "Cat in First Floor Guest Double Bedroom"
+      binary_sensor.cat_in_first_floor_study:
+        name: "Cat in First Floor Study"
+      binary_sensor.cat_in_second_floor_green_bedroom:
+        name: "Cat in Second Floor Green Bedroom"
+      binary_sensor.cat_in_second_floor_guest_ensuite:
+        name: "Cat in Second Floor Guest Ensuite"
+      binary_sensor.cat_not_detected:
+        name: "Cat Not Detected"

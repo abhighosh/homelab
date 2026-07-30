@@ -9,6 +9,8 @@ Nginx Proxy Manager and should not be exposed to the internet.
 - `frigate` can read and write only `frigate/#`.
 - `homeassistant` can read and write all topics so future MQTT integrations do
   not require redesigning the broker.
+- `espresense` can read and write the ESPresense topic tree and publish Home
+  Assistant discovery documents.
 - `healthcheck` can read only `$SYS/broker/uptime`.
 
 Anonymous connections are rejected. The tracked ACL contains no credentials.
@@ -28,6 +30,10 @@ The script creates random credentials under
 passwords in ignored, mode-`600` files for configuring the clients and creates
 a private, salted password database for the broker. Passwords are never
 passed as command-line arguments.
+
+Run the script again after adding a new account. Existing individual passwords
+are preserved, while the hashed broker database is rebuilt to include all
+accounts.
 
 Add this directory to Komodo as a Git-backed stack on the Pi (`Local`) and
 deploy it only after the bootstrap completes. Runtime data remains at

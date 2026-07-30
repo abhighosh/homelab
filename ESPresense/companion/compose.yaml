@@ -1,0 +1,23 @@
+services:
+  espresense-companion:
+    image: espresense/espresense-companion:2.1.2
+    container_name: espresense-companion
+    restart: unless-stopped
+    init: true
+    environment:
+      TZ: Europe/London
+    ports:
+      # The management UI is available only over Tailscale.
+      - "${TAILSCALE_IP:-100.99.54.40}:8267:8267"
+      # ESPresense nodes on the LAN use this endpoint for firmware updates.
+      - "${LAN_IP:-192.168.0.220}:8268:8268"
+    volumes:
+      - ${ESPRESENSE_CONFIG_PATH:-/home/abhi/Docker/ESPresense/data}:/config/espresense
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -f http://127.0.0.1:8267/healthz || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

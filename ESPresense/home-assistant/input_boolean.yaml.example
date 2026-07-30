@@ -1,0 +1,31 @@
+roborock_schedule_enabled:
+  name: "Roborock schedule"
+  icon: mdi:calendar-clock
+
+roborock_schedule_monday:
+  name: "Roborock schedule Monday"
+  icon: mdi:calendar
+
+roborock_schedule_tuesday:
+  name: "Roborock schedule Tuesday"
+  icon: mdi:calendar
+
+roborock_schedule_wednesday:
+  name: "Roborock schedule Wednesday"
+  icon: mdi:calendar
+
+roborock_schedule_thursday:
+  name: "Roborock schedule Thursday"
+  icon: mdi:calendar
+
+roborock_schedule_friday:
+  name: "Roborock schedule Friday"
+  icon: mdi:calendar
+
+roborock_schedule_saturday:
+  name: "Roborock schedule Saturday"
+  icon: mdi:calendar
+
+roborock_schedule_sunday:
+  name: "Roborock schedule Sunday"
+  icon: mdi:calendar

@@ -6,6 +6,13 @@ topic readwrite frigate/#
 user homeassistant
 topic readwrite #
 
+# ESPresense nodes and Companion share measurements and fleet settings below
+# espresense/#. Nodes also publish Home Assistant MQTT discovery documents.
+user espresense
+topic readwrite espresense/#
+topic write homeassistant/#
+topic read homeassistant/status
+
 # The container health check only needs a broker-owned status topic.
 user healthcheck
 topic read $SYS/broker/uptime

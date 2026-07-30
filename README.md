@@ -10,6 +10,7 @@ tooling for the Pi and `ubuntu-desktop`.
 - Glances on ubuntu-desktop
 - Frigate on ubuntu-desktop
 - Home Assistant
+- ESPresense BLE room-presence pilot and optional Companion configuration
 - Komodo with MongoDB and Periphery
 - Mosquitto MQTT broker
 - Nginx Proxy Manager
@@ -128,6 +129,12 @@ Home Assistant follows the same pattern: its Git-backed Compose definition is
 tracked under `HomeAssistant/`, while runtime configuration is kept at
 `/home/abhi/Docker/HomeAssistant/config` by default. Override
 `HOME_ASSISTANT_CONFIG_PATH` in the Stack environment if the host path changes.
+
+ESPresense uses dedicated M5 ATOM Lite room nodes and the existing Mosquitto and
+Home Assistant services. Its pilot inventory, reproducible Home Assistant
+examples, ESPHome touchscreen plan, and optional Companion subproject are under
+`ESPresense/`; Companion runtime configuration remains ignored under
+`/home/abhi/Docker/ESPresense/data`.
 
 Mosquitto is the LAN-only, authenticated MQTT broker shared by Frigate and Home
 Assistant. Its Git-backed definition and ACL are tracked under `Mosquitto/`,

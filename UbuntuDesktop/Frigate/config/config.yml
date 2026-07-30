@@ -36,11 +36,9 @@ go2rtc:
     snug:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream1#backchannel=0"
     nest:
-      # Direct go2rtc ingest learns Starling's in-band H.264 SPS/PPS data and
-      # advertises it to strict MSE clients such as CrowsEye. An FFmpeg
-      # stream-copy wrapper prevented those learned parameters from being
-      # included in its static RTSP description.
-      - "{FRIGATE_NEST_RTSP_URL}"
+      # The dedicated relay receives a repaired H.264/AAC stream from the
+      # Nest-only software transcoder. Scrypted remains Starling's sole client.
+      - "rtsp://nest-relay:8554/nest"
 
 detect:
   enabled: false
@@ -117,7 +115,9 @@ cameras:
   nest:
     ffmpeg:
       inputs:
-        - path: rtsp://127.0.0.1:8554/nest
+        # Read directly from the repaired relay so recording does not depend
+        # on the go2rtc live-view consumer lifecycle.
+        - path: rtsp://nest-relay:8554/nest
           input_args: preset-rtsp-restream
           roles: [record, detect]
     ui:

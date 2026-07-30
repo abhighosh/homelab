@@ -1,0 +1,16 @@
+# ESPresense chooses the room reporting the shortest recent BLE distance.
+- platform: mqtt_room
+  device_id: "cat_collar"
+  name: "Cat Collar Room"
+  unique_id: "espresense_cat_collar_room"
+  state_topic: "espresense/devices/cat_collar"
+  timeout: 10
+  away_timeout: 60
+
+- platform: mqtt_room
+  device_id: "phone:abhi-iphone"
+  name: "Abhi iPhone Room"
+  unique_id: "espresense_abhi_iphone_room"
+  state_topic: "espresense/devices/phone:abhi-iphone"
+  timeout: 10
+  away_timeout: 120
