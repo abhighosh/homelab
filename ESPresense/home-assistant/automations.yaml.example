@@ -51,3 +51,31 @@
       target:
         entity_id: vacuum.roborock_q7_l5
   mode: single
+
+- id: crowpanel_sonos_favorite
+  alias: "CrowPanel · Play Sonos favorite"
+  description: >-
+    Resolves a CrowPanel favorite slot against the current Sonos Favorites
+    sensor and starts it on the kitchen Play:1.
+  triggers:
+    - trigger: event
+      event_type: esphome.crowpanel_media_favorite
+  variables:
+    favorite_slot: "{{ trigger.event.data.slot | int(0) }}"
+    favorite_items: "{{ state_attr('sensor.sonos_favorites', 'items') or {} }}"
+    favorite_ids: "{{ favorite_items.keys() | list }}"
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ 1 <= favorite_slot <= 9 and
+           favorite_slot <= favorite_ids | count }}
+  actions:
+    - action: media_player.play_media
+      target:
+        entity_id: media_player.kitchen_kitchen
+      data:
+        media_content_type: favorite_item_id
+        media_content_id: "{{ favorite_ids[favorite_slot - 1] }}"
+        enqueue: replace
+  mode: queued
+  max: 3

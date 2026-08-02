@@ -66,5 +66,10 @@ Assistant automation starts `vacuum.roborock_q7_l5` only when both the master
 switch and the current weekday are enabled. Disabling the switch affects future
 starts and does not stop a clean already in progress.
 
+The same two schedule entities are exposed through the YAML-managed **Cat
+Safety** HomeKit bridge as **Roborock Schedule** and **Husqvarna Schedule**.
+HomeKit, Home Assistant, and the CrowPanel therefore operate the same controls;
+no duplicate helpers or synchronisation automations are required.
+
 The separate **Panel Configuration** dashboard owns the nine action labels and
 scripts; presence tracking is kept in the standalone **Presence** dashboard.

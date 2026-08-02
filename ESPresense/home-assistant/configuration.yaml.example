@@ -30,7 +30,8 @@ lovelace:
       icon: mdi:tablet-dashboard
       show_in_sidebar: true
 
-# This remains separate from the UI-managed HASS Bridge on port 21064.
+# Cat safety and schedule controls share this already-paired bridge, separate
+# from the UI-managed HASS Bridge on port 21064.
 homekit:
   - name: "Cat Safety"
     port: 21065
@@ -48,6 +49,8 @@ homekit:
         - binary_sensor.cat_in_second_floor_green_bedroom
         - binary_sensor.cat_in_second_floor_guest_ensuite
         - binary_sensor.cat_not_detected
+        - input_boolean.roborock_schedule_enabled
+        - switch.garden_rodney_enable_schedule
     entity_config:
       binary_sensor.cat_in_snug:
         name: "Cat in Snug"
@@ -73,3 +76,7 @@ homekit:
         name: "Cat in Second Floor Guest Ensuite"
       binary_sensor.cat_not_detected:
         name: "Cat Not Detected"
+      input_boolean.roborock_schedule_enabled:
+        name: "Roborock Schedule"
+      switch.garden_rodney_enable_schedule:
+        name: "Husqvarna Schedule"

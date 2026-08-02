@@ -19,6 +19,10 @@ Ntfy/bootstrap/
 HomeAssistant/config/
 ESPresense/data/
 ESPresense/display/config/.esphome/
+ESPresense/display/config/.device-builder-peer-link-key.bin
+ESPresense/display/config/.device-builder-preferences.json
+ESPresense/display/config/.device-builder.json
+ESPresense/display/config/.device-builder.json.lock
 UbuntuDesktop/Glances/config/
 UbuntuDesktop/Scrypted/volume/
 UbuntuDesktop/Frigate/data/

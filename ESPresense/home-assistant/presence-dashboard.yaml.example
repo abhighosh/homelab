@@ -77,5 +77,5 @@ views:
             secondary_info: last-changed
           - entity: binary_sensor.cat_not_detected
             name: "Cat not detected"
-            icon: mdi:cat-off
+            icon: mdi:map-marker-off
             secondary_info: last-changed

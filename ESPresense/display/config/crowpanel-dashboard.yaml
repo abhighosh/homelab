@@ -4,7 +4,7 @@ esphome:
   min_version: 2026.7.2
   project:
     name: homelab.crowpanel-dashboard
-    version: dashboard-13
+    version: dashboard-39
   on_boot:
     - priority: 600
       then:
@@ -15,21 +15,22 @@ esphome:
         - lambda: |-
             const uint8_t compatible_brightness = 16;
             id(board_controller).write(&compatible_brightness, 1);
-
+        - lambda: |-
+            // Ensure the controller-driven buzzer is silent after boot.
+            const uint8_t buzzer_off = 0x16;
+            id(board_controller).write(&buzzer_off, 1);
 esp32:
   board: esp32-s3-devkitc-1
   variant: esp32s3
   flash_size: 16MB
   framework:
     type: esp-idf
-    advanced:
-      # Elecrow's factory package runs the N16R8 module's octal PSRAM at
-      # 120 MHz. The hardware test confirmed this is stable on this panel.
-      enable_idf_experimental_features: true
 
 psram:
   mode: octal
-  speed: 120MHz
+  # Standard ESP-IDF setting for this ESP32-S3 N16R8 module. The panel proved
+  # substantially more reliable at 80 MHz than with experimental 120 MHz PSRAM.
+  speed: 80MHz
   ignore_not_found: false
 
 logger:
@@ -50,6 +51,14 @@ wifi:
     password: !secret cat_panel_01_fallback_password
 
 captive_portal:
+
+# Used only by the documented online_image component. Home Assistant prepares
+# an exact-size PNG from Sonos's entity_picture and serves it on the local LAN.
+http_request:
+  timeout: 5s
+  follow_redirects: true
+  # Artwork is served only by Home Assistant over the trusted local network.
+  verify_ssl: false
 
 i2c:
   id: panel_i2c
@@ -98,6 +107,7 @@ touchscreen:
     update_interval: 50ms
     on_touch:
       - script.execute: backlight_active
+      - script.execute: touch_ping
 
 time:
   - platform: homeassistant
@@ -121,6 +131,19 @@ globals:
     initial_value: "true"
 
 script:
+  - id: touch_ping
+    mode: restart
+    then:
+      - lambda: |-
+          // CrowPanel Advance V1.1 controller command: buzzer on.
+          const uint8_t buzzer_on = 0x15;
+          id(board_controller).write(&buzzer_on, 1);
+      - delay: 10ms
+      - lambda: |-
+          // CrowPanel Advance V1.1 controller command: buzzer off.
+          const uint8_t buzzer_off = 0x16;
+          id(board_controller).write(&buzzer_off, 1);
+
   - id: backlight_active
     then:
       - lambda: |-
@@ -148,13 +171,20 @@ script:
   - id: refresh_cat_cards
     then:
       - lambda: |-
-          id(cat_attention) =
-            id(cat_unsafe) ||
+          const bool missing =
             !id(cat_room).has_state() ||
             id(cat_room).state.empty() ||
             id(cat_room).state == "unknown" ||
             id(cat_room).state == "unavailable" ||
             id(cat_room).state == "not_home";
+          const std::string room = missing ? std::string() : id(cat_room).state;
+          id(cat_unsafe) = !missing &&
+            room != "ground_hallway" &&
+            room != "kitchen" &&
+            room != "first_floor_hallway" &&
+            room != "bathroom" &&
+            room != "second_floor_hallway";
+          id(cat_attention) = missing || id(cat_unsafe);
       - if:
           condition:
             lambda: return id(cat_attention);
@@ -333,6 +363,65 @@ script:
           map[15] = nullptr;
           lv_buttonmatrix_set_map(id(room_matrix)->obj, map);
 
+  - id: update_media_favorites
+    parameters:
+      data: string
+    then:
+      - lambda: |-
+          lv_obj_t *buttons[] = {
+            id(media_favorite_button_1), id(media_favorite_button_2),
+            id(media_favorite_button_3), id(media_favorite_button_4),
+            id(media_favorite_button_5), id(media_favorite_button_6),
+            id(media_favorite_button_7), id(media_favorite_button_8),
+            id(media_favorite_button_9)
+          };
+          lv_obj_t *labels[] = {
+            id(media_favorite_label_1), id(media_favorite_label_2),
+            id(media_favorite_label_3), id(media_favorite_label_4),
+            id(media_favorite_label_5), id(media_favorite_label_6),
+            id(media_favorite_label_7), id(media_favorite_label_8),
+            id(media_favorite_label_9)
+          };
+          size_t start = 0;
+          for (int i = 0; i < 9; i++) {
+            std::string label;
+            if (start <= data.size()) {
+              size_t end = data.find('|', start);
+              if (end == std::string::npos) end = data.size();
+              label = data.substr(start, end - start);
+              start = end + 1;
+            }
+            const auto first = label.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) {
+              label.clear();
+            } else {
+              const auto last = label.find_last_not_of(" \t\r\n");
+              label = label.substr(first, last - first + 1);
+            }
+            auto replace_all = [](std::string &value, const std::string &from,
+                                  const std::string &to) {
+              size_t pos = 0;
+              while ((pos = value.find(from, pos)) != std::string::npos) {
+                value.replace(pos, from.size(), to);
+                pos += to.size();
+              }
+            };
+            replace_all(label, "\xE2\x80\x98", "'");
+            replace_all(label, "\xE2\x80\x99", "'");
+            replace_all(label, "\xE2\x80\x9C", "\"");
+            replace_all(label, "\xE2\x80\x9D", "\"");
+            replace_all(label, "\xE2\x80\x93", "-");
+            replace_all(label, "\xE2\x80\x94", "-");
+            replace_all(label, "\xE2\x88\x92", "-");
+            replace_all(label, "\xC2\xA0", " ");
+            lv_label_set_text(labels[i], label.c_str());
+            if (label.empty()) {
+              lv_obj_add_state(buttons[i], LV_STATE_DISABLED);
+            } else {
+              lv_obj_clear_state(buttons[i], LV_STATE_DISABLED);
+            }
+          }
+
 text_sensor:
   - platform: homeassistant
     id: cat_room
@@ -369,6 +458,146 @@ text_sensor:
       then:
         - script.execute:
             id: update_room_tiles
+            data: !lambda return x;
+
+  - platform: homeassistant
+    id: sonos_state
+    entity_id: media_player.kitchen_kitchen
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_sonos_state_label
+            text: !lambda |-
+              if (x == "playing") return std::string("PLAYING");
+              if (x == "paused") return std::string("PAUSED");
+              if (x == "unavailable") return std::string("UNAVAILABLE");
+              return std::string("IDLE");
+        - lvgl.label.update:
+            id: media_state_label
+            text: !lambda |-
+              if (x == "playing") return std::string("Playing");
+              if (x == "paused") return std::string("Paused");
+              if (x == "unavailable") return std::string("Unavailable");
+              return std::string("Idle");
+        - lvgl.label.update:
+            id: media_play_pause_label
+            text: !lambda |-
+              return x == "playing" ? std::string(LV_SYMBOL_PAUSE)
+                                    : std::string(LV_SYMBOL_PLAY);
+        - lvgl.widget.update:
+            id: overview_media_card
+            bg_color: !lambda |-
+              if (x == "playing") return lv_color_hex(0x176B4D);
+              if (x == "paused") return lv_color_hex(0x65558A);
+              if (x == "unavailable") return lv_color_hex(0x712B38);
+              return lv_color_hex(0x1D4058);
+        - lvgl.widget.update:
+            id: overview_media_tint
+            bg_color: !lambda |-
+              if (x == "playing") return lv_color_hex(0x0B4F3A);
+              if (x == "paused") return lv_color_hex(0x4C3D70);
+              if (x == "unavailable") return lv_color_hex(0x5B1F2A);
+              return lv_color_hex(0x102F45);
+  - platform: homeassistant
+    id: sonos_title
+    entity_id: media_player.kitchen_kitchen
+    attribute: media_title
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_sonos_title_label
+            text: !lambda |-
+              std::string value = x.empty() ? std::string("Nothing playing") : x;
+              auto replace_all = [](std::string &text, const std::string &from,
+                                    const std::string &to) {
+                size_t pos = 0;
+                while ((pos = text.find(from, pos)) != std::string::npos) {
+                  text.replace(pos, from.size(), to);
+                  pos += to.size();
+                }
+              };
+              replace_all(value, "\xE2\x80\x98", "'");
+              replace_all(value, "\xE2\x80\x99", "'");
+              replace_all(value, "\xE2\x80\x9C", "\"");
+              replace_all(value, "\xE2\x80\x9D", "\"");
+              replace_all(value, "\xE2\x80\x93", "-");
+              replace_all(value, "\xE2\x80\x94", "-");
+              replace_all(value, "\xE2\x88\x92", "-");
+              replace_all(value, "\xC2\xA0", " ");
+              return value;
+        - lvgl.label.update:
+            id: media_title_label
+            text: !lambda |-
+              std::string value = x.empty() ? std::string("Nothing playing") : x;
+              auto replace_all = [](std::string &text, const std::string &from,
+                                    const std::string &to) {
+                size_t pos = 0;
+                while ((pos = text.find(from, pos)) != std::string::npos) {
+                  text.replace(pos, from.size(), to);
+                  pos += to.size();
+                }
+              };
+              replace_all(value, "\xE2\x80\x98", "'");
+              replace_all(value, "\xE2\x80\x99", "'");
+              replace_all(value, "\xE2\x80\x9C", "\"");
+              replace_all(value, "\xE2\x80\x9D", "\"");
+              replace_all(value, "\xE2\x80\x93", "-");
+              replace_all(value, "\xE2\x80\x94", "-");
+              replace_all(value, "\xE2\x88\x92", "-");
+              replace_all(value, "\xC2\xA0", " ");
+              return value;
+
+  - platform: homeassistant
+    id: sonos_artist
+    entity_id: media_player.kitchen_kitchen
+    attribute: media_artist
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: overview_sonos_artist_label
+            text: !lambda return x;
+        - lvgl.label.update:
+            id: media_artist_label
+            text: !lambda return x;
+
+  - platform: homeassistant
+    id: sonos_entity_picture
+    entity_id: media_player.kitchen_kitchen
+    attribute: entity_picture
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                return x.empty() || x == "unknown" || x == "unavailable";
+            then:
+              - lvgl.widget.hide: overview_sonos_artwork
+              - online_image.release: sonos_album_art
+            else:
+              # Home Assistant creates the small PNG asynchronously when this
+              # attribute changes. Give that server-side conversion time to
+              # finish, then fetch the fixed local URL.
+              - delay: 3s
+              - component.update: sonos_album_art
+
+  - platform: homeassistant
+    id: sonos_source
+    entity_id: media_player.kitchen_kitchen
+    attribute: source
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: media_source_label
+            text: !lambda return x;
+
+  - platform: homeassistant
+    id: sonos_favorite_labels
+    entity_id: sensor.panel_sonos_favorites
+    attribute: labels
+    on_value:
+      then:
+        - script.execute:
+            id: update_media_favorites
             data: !lambda return x;
 
   - platform: homeassistant
@@ -597,14 +826,6 @@ text_sensor:
 
 binary_sensor:
   - platform: homeassistant
-    id: cat_in_forbidden_room
-    entity_id: binary_sensor.cat_in_forbidden_room
-    on_state:
-      then:
-        - lambda: id(cat_unsafe) = x;
-        - script.execute: refresh_cat_cards
-
-  - platform: homeassistant
     id: roborock_schedule_enabled
     entity_id: input_boolean.roborock_schedule_enabled
     on_state:
@@ -619,6 +840,18 @@ binary_sensor:
         - script.execute: refresh_schedule_controls
 
 sensor:
+  - platform: homeassistant
+    id: sonos_volume
+    entity_id: media_player.kitchen_kitchen
+    attribute: volume_level
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: media_volume_label
+            text:
+              format: "%.0f%%"
+              args: [x * 100.0]
+
   - platform: homeassistant
     id: roborock_battery
     entity_id: sensor.roborock_q7_l5_battery
@@ -708,6 +941,12 @@ interval:
 
 image:
   - platform: file
+    file: "mdi:music-circle"
+    id: sonos_music_icon
+    type: RGB565
+    transparency: alpha_channel
+    resize: 96x96
+  - platform: file
     file: "mdi:weather-sunny"
     id: weather_sunny_icon
     type: RGB565
@@ -749,6 +988,26 @@ image:
     type: RGB565
     transparency: alpha_channel
     resize: 64x64
+  - platform: online_image
+    id: sonos_album_art
+    url: "http://192.168.0.220:8123/local/crowpanel/sonos-artwork.png"
+    format: PNG
+    type: RGB565
+    transparency: opaque
+    resize: 244x104
+    update_interval: never
+    # Smaller than the documented 64 KiB default to limit transient memory and
+    # reduce the chance of a long decode starving the display/API tasks.
+    buffer_size: 32768
+    on_download_finished:
+      # Runtime images have no pixel data when the LVGL widget is created.
+      # Reassign the source after each download so LVGL refreshes its descriptor.
+      - lvgl.image.update:
+          id: overview_sonos_artwork
+          src: sonos_album_art
+      - lvgl.widget.show: overview_sonos_artwork
+    on_error:
+      - lvgl.widget.hide: overview_sonos_artwork
 
 button:
   - platform: restart
@@ -796,9 +1055,9 @@ lvgl:
             id: cat_card
             x: 24
             y: 58
-            width: 240
-            height: 120
-            bg_color: 0x8A6116
+            width: 244
+            height: 104
+            bg_color: 0x8A4B1A
             border_width: 0
             radius: 12
             pad_all: 0
@@ -808,29 +1067,29 @@ lvgl:
                   x: 14
                   y: 10
                   text: "CAT"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xD1FAE5
               - label:
                   id: cat_location_label
                   x: 14
-                  y: 36
-                  width: 212
+                  y: 32
+                  width: 216
                   text: "Waiting..."
-                  text_font: montserrat_20
+                  text_font: montserrat_18
                   text_color: 0xFFFFFF
                   long_mode: DOT
               - label:
                   id: cat_safety_label
                   x: 14
-                  y: 88
+                  y: 76
                   text: "CHECKING"
-                  text_font: montserrat_14
+                  text_font: montserrat_12
                   text_color: 0xD1FAE5
         - obj:
-            x: 280
+            x: 278
             y: 58
-            width: 240
-            height: 120
+            width: 244
+            height: 104
             bg_color: 0x1D4058
             border_width: 0
             radius: 12
@@ -841,88 +1100,90 @@ lvgl:
                   x: 14
                   y: 10
                   text: "ABHI'S IPHONE"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xDBEAFE
               - label:
                   id: iphone_location_label
                   x: 14
-                  y: 40
-                  width: 212
+                  y: 34
+                  width: 216
                   text: "Waiting..."
-                  text_font: montserrat_20
+                  text_font: montserrat_18
                   text_color: 0xFFFFFF
                   long_mode: DOT
-        - obj:
-            x: 536
-            y: 194
-            width: 240
-            height: 102
-            bg_color: 0x172231
-            border_width: 1
-            border_color: 0x334155
+        - button:
+            id: overview_media_card
+            x: 532
+            y: 58
+            width: 244
+            height: 104
+            bg_color: 0x1D4058
+            border_width: 0
             radius: 12
             pad_all: 0
-            scrollable: false
+            clip_corner: true
+            on_press:
+              - lvgl.page.show: media_page
             widgets:
+              - image:
+                  id: overview_sonos_artwork
+                  x: 0
+                  y: 0
+                  width: 244
+                  height: 104
+                  src: sonos_album_art
+                  hidden: true
+              - obj:
+                  id: overview_media_tint
+                  x: 0
+                  y: 0
+                  width: 244
+                  height: 104
+                  bg_color: 0x1D4058
+                  bg_opa: 76%
+                  border_width: 0
+                  radius: 0
+                  clickable: false
+                  scrollable: false
               - label:
                   x: 14
-                  y: 5
-                  text: "ROBOROCK"
+                  y: 10
+                  width: 216
+                  text: "SONOS - KITCHEN"
                   text_font: montserrat_14
-                  text_color: 0xCBD5E1
+                  text_color: 0xFFFFFF
               - label:
-                  id: overview_roborock_status_label
+                  id: overview_sonos_title_label
                   x: 14
-                  y: 22
-                  width: 150
-                  text: "Waiting..."
+                  y: 34
+                  width: 216
+                  height: 20
+                  text: "Nothing playing"
                   text_font: montserrat_16
                   text_color: 0xFFFFFF
                   long_mode: DOT
               - label:
-                  id: overview_roborock_battery_label
-                  x: 170
-                  y: 23
-                  width: 56
-                  text: "--%"
-                  text_align: RIGHT
-                  text_font: montserrat_14
+                  id: overview_sonos_artist_label
+                  x: 14
+                  y: 58
+                  width: 216
+                  text: ""
+                  text_font: montserrat_12
                   text_color: 0x94A3B8
-              - line:
-                  points:
-                    - 14, 48
-                    - 226, 48
-                  line_color: 0x334155
-                  line_width: 1
-              - label:
-                  x: 14
-                  y: 52
-                  text: "HUSQVARNA"
-                  text_font: montserrat_14
-                  text_color: 0xCBD5E1
-              - label:
-                  id: overview_husqvarna_status_label
-                  x: 14
-                  y: 71
-                  width: 150
-                  text: "Waiting..."
-                  text_font: montserrat_16
-                  text_color: 0xFFFFFF
                   long_mode: DOT
               - label:
-                  id: overview_husqvarna_battery_label
-                  x: 170
-                  y: 72
-                  width: 56
-                  text: "--%"
-                  text_align: RIGHT
-                  text_font: montserrat_14
-                  text_color: 0x94A3B8
+                  id: overview_sonos_state_label
+                  x: 14
+                  y: 80
+                  width: 216
+                  text: "IDLE"
+                  text_font: montserrat_12
+                  text_color: 0x93C5FD
         - obj:
             x: 24
-            y: 194
-            width: 240
-            height: 102
+            y: 172
+            width: 244
+            height: 104
             bg_color: 0x25313A
             border_width: 0
             radius: 12
@@ -940,22 +1201,22 @@ lvgl:
                   x: 14
                   y: 34
                   text: "--.-°"
-                  text_font: montserrat_28
+                  text_font: montserrat_24
                   text_color: 0xFFFFFF
               - label:
                   id: overview_weather_label
-                  x: 84
-                  y: 43
-                  width: 142
+                  x: 92
+                  y: 39
+                  width: 138
                   text: "Waiting..."
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xE2E8F0
                   long_mode: DOT
         - obj:
-            x: 280
-            y: 194
-            width: 240
-            height: 102
+            x: 278
+            y: 172
+            width: 244
+            height: 104
             bg_color: 0x25313A
             border_width: 0
             radius: 12
@@ -973,13 +1234,13 @@ lvgl:
                   x: 14
                   y: 36
                   text: "--.-°"
-                  text_font: montserrat_28
+                  text_font: montserrat_24
                   text_color: 0xFFFFFF
         - obj:
-            x: 536
-            y: 58
-            width: 240
-            height: 120
+            x: 532
+            y: 172
+            width: 244
+            height: 104
             bg_color: 0x25313A
             border_width: 0
             radius: 12
@@ -995,24 +1256,24 @@ lvgl:
               - label:
                   id: overview_heating_state_label
                   x: 14
-                  y: 44
-                  width: 212
+                  y: 38
+                  width: 216
                   text: "Heating --"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xFFFFFF
               - label:
                   id: overview_hot_water_state_label
                   x: 14
-                  y: 76
-                  width: 212
+                  y: 66
+                  width: 216
                   text: "Hot water --"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xFFFFFF
         - obj:
             x: 24
-            y: 312
-            width: 368
-            height: 84
+            y: 286
+            width: 244
+            height: 104
             bg_color: 0x172231
             border_width: 1
             border_color: 0x334155
@@ -1024,14 +1285,14 @@ lvgl:
                   x: 14
                   y: 8
                   text: "ROBOROCK SCHEDULE"
-                  text_font: montserrat_14
+                  text_font: montserrat_12
                   text_color: 0xCBD5E1
               - switch:
                   id: overview_roborock_schedule_switch
                   x: 14
-                  y: 38
-                  width: 64
-                  height: 30
+                  y: 34
+                  width: 54
+                  height: 26
                   bg_color: 0x374151
                   checked:
                     bg_color: 0x176B4D
@@ -1055,27 +1316,33 @@ lvgl:
                                       entity_id: input_boolean.roborock_schedule_enabled
               - label:
                   id: overview_roborock_schedule_label
-                  x: 88
-                  y: 44
-                  width: 106
+                  x: 78
+                  y: 39
+                  width: 144
                   text: "OFF"
-                  text_font: montserrat_14
+                  text_font: montserrat_12
                   text_color: 0xFFFFFF
               - label:
+                  x: 14
+                  y: 74
+                  text: "STATUS"
+                  text_font: montserrat_12
+                  text_color: 0x64748B
+              - label:
                   id: overview_roborock_toggle_status_label
-                  x: 204
-                  y: 43
-                  width: 148
+                  x: 72
+                  y: 70
+                  width: 158
                   text: "Waiting..."
                   text_align: RIGHT
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xE2E8F0
                   long_mode: DOT
         - obj:
-            x: 408
-            y: 312
-            width: 368
-            height: 84
+            x: 278
+            y: 286
+            width: 244
+            height: 104
             bg_color: 0x172231
             border_width: 1
             border_color: 0x334155
@@ -1087,14 +1354,14 @@ lvgl:
                   x: 14
                   y: 8
                   text: "HUSQVARNA SCHEDULE"
-                  text_font: montserrat_14
+                  text_font: montserrat_12
                   text_color: 0xCBD5E1
               - switch:
                   id: overview_husqvarna_schedule_switch
                   x: 14
-                  y: 38
-                  width: 64
-                  height: 30
+                  y: 34
+                  width: 54
+                  height: 26
                   bg_color: 0x374151
                   checked:
                     bg_color: 0x176B4D
@@ -1118,22 +1385,94 @@ lvgl:
                                       entity_id: switch.garden_rodney_enable_schedule
               - label:
                   id: overview_husqvarna_schedule_label
-                  x: 88
-                  y: 44
-                  width: 106
+                  x: 78
+                  y: 39
+                  width: 144
                   text: "OFF"
-                  text_font: montserrat_14
+                  text_font: montserrat_12
                   text_color: 0xFFFFFF
               - label:
+                  x: 14
+                  y: 74
+                  text: "STATUS"
+                  text_font: montserrat_12
+                  text_color: 0x64748B
+              - label:
                   id: overview_husqvarna_toggle_status_label
-                  x: 204
-                  y: 43
-                  width: 148
+                  x: 72
+                  y: 70
+                  width: 158
                   text: "Waiting..."
                   text_align: RIGHT
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xE2E8F0
                   long_mode: DOT
+        - obj:
+            x: 532
+            y: 286
+            width: 244
+            height: 104
+            bg_color: 0x172231
+            border_width: 1
+            border_color: 0x334155
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 8
+                  text: "EQUIPMENT STATUS"
+                  text_font: montserrat_12
+                  text_color: 0xCBD5E1
+              - label:
+                  x: 14
+                  y: 34
+                  text: "Roborock"
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+              - label:
+                  id: overview_roborock_status_label
+                  x: 78
+                  y: 34
+                  width: 104
+                  text: "Waiting..."
+                  text_font: montserrat_12
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+              - label:
+                  id: overview_roborock_battery_label
+                  x: 184
+                  y: 34
+                  width: 46
+                  text: "--%"
+                  text_align: RIGHT
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+              - label:
+                  x: 14
+                  y: 68
+                  text: "Rodney"
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+              - label:
+                  id: overview_husqvarna_status_label
+                  x: 78
+                  y: 68
+                  width: 104
+                  text: "Waiting..."
+                  text_font: montserrat_12
+                  text_color: 0xFFFFFF
+                  long_mode: DOT
+              - label:
+                  id: overview_husqvarna_battery_label
+                  x: 184
+                  y: 68
+                  width: 46
+                  text: "--%"
+                  text_align: RIGHT
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
 
     - id: presence_page
       bg_color: 0x0B1220
@@ -1173,7 +1512,7 @@ lvgl:
               checked:
                 bg_color: 0x9C2634
               disabled:
-                bg_color: 0x6B4F16
+                bg_color: 0x7A431C
                 text_opa: 100%
             rows:
               - buttons:
@@ -1381,6 +1720,368 @@ lvgl:
                   text_align: RIGHT
                   text_font: montserrat_32
                   text_color: 0xFFFFFF
+
+    - id: media_page
+      bg_color: 0x0B1220
+      widgets:
+        - label:
+            x: 24
+            y: 18
+            text: "MEDIA"
+            text_font: montserrat_28
+        - label:
+            x: 584
+            y: 24
+            width: 192
+            text: "Kitchen Sonos Play:1"
+            text_align: RIGHT
+            text_font: montserrat_14
+            text_color: 0x94A3B8
+        - obj:
+            x: 24
+            y: 58
+            width: 242
+            height: 328
+            bg_color: 0x172231
+            border_width: 1
+            border_color: 0x334155
+            radius: 12
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 12
+                  text: "NOW PLAYING"
+                  text_font: montserrat_14
+                  text_color: 0x93C5FD
+              - label:
+                  id: media_title_label
+                  x: 14
+                  y: 42
+                  width: 214
+                  height: 54
+                  text: "Nothing playing"
+                  text_font: montserrat_18
+                  text_color: 0xFFFFFF
+                  long_mode: WRAP
+              - label:
+                  id: media_artist_label
+                  x: 14
+                  y: 102
+                  width: 214
+                  text: ""
+                  text_font: montserrat_14
+                  text_color: 0xCBD5E1
+                  long_mode: DOT
+              - label:
+                  id: media_state_label
+                  x: 14
+                  y: 132
+                  width: 92
+                  text: "Idle"
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+              - label:
+                  id: media_source_label
+                  x: 108
+                  y: 132
+                  width: 120
+                  text: ""
+                  text_align: RIGHT
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+                  long_mode: DOT
+              - button:
+                  x: 14
+                  y: 164
+                  width: 64
+                  height: 54
+                  bg_color: 0x1D4058
+                  radius: 10
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.media_previous_track
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: !lambda return std::string(LV_SYMBOL_PREV);
+                        text_font: montserrat_24
+              - button:
+                  x: 89
+                  y: 164
+                  width: 64
+                  height: 54
+                  bg_color: 0x176B4D
+                  radius: 10
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.media_play_pause
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                  widgets:
+                    - label:
+                        id: media_play_pause_label
+                        align: CENTER
+                        text: !lambda return std::string(LV_SYMBOL_PLAY);
+                        text_font: montserrat_24
+              - button:
+                  x: 164
+                  y: 164
+                  width: 64
+                  height: 54
+                  bg_color: 0x1D4058
+                  radius: 10
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.media_next_track
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: !lambda return std::string(LV_SYMBOL_NEXT);
+                        text_font: montserrat_24
+              - label:
+                  x: 14
+                  y: 242
+                  text: "VOLUME"
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+              - label:
+                  id: media_volume_label
+                  x: 160
+                  y: 238
+                  width: 68
+                  text: "--%"
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
+              - button:
+                  x: 14
+                  y: 272
+                  width: 100
+                  height: 42
+                  bg_color: 0x25313A
+                  radius: 9
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.volume_down
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "VOLUME -"
+                        text_font: montserrat_12
+              - button:
+                  x: 128
+                  y: 272
+                  width: 100
+                  height: 42
+                  bg_color: 0x25313A
+                  radius: 9
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.volume_up
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "VOLUME +"
+                        text_font: montserrat_12
+        - button:
+            id: media_favorite_button_1
+            x: 278
+            y: 58
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "1"}
+            widgets:
+              - label:
+                  id: media_favorite_label_1
+                  align: CENTER
+                  width: 132
+                  text: "Waiting..."
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_2
+            x: 448
+            y: 58
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "2"}
+            widgets:
+              - label:
+                  id: media_favorite_label_2
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_3
+            x: 618
+            y: 58
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "3"}
+            widgets:
+              - label:
+                  id: media_favorite_label_3
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_4
+            x: 278
+            y: 174
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "4"}
+            widgets:
+              - label:
+                  id: media_favorite_label_4
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_5
+            x: 448
+            y: 174
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "5"}
+            widgets:
+              - label:
+                  id: media_favorite_label_5
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_6
+            x: 618
+            y: 174
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "6"}
+            widgets:
+              - label:
+                  id: media_favorite_label_6
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_7
+            x: 278
+            y: 290
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "7"}
+            widgets:
+              - label:
+                  id: media_favorite_label_7
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_8
+            x: 448
+            y: 290
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "8"}
+            widgets:
+              - label:
+                  id: media_favorite_label_8
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_9
+            x: 618
+            y: 290
+            width: 158
+            height: 104
+            bg_color: 0x1D4058
+            radius: 12
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "9"}
+            widgets:
+              - label:
+                  id: media_favorite_label_9
+                  align: CENTER
+                  width: 132
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
 
     - id: actions_page
       bg_color: 0x0B1220
@@ -1608,6 +2309,9 @@ lvgl:
                 - text: "CLIMATE"
                   on_press:
                     - lvgl.page.show: climate_page
+                - text: "MEDIA"
+                  on_press:
+                    - lvgl.page.show: media_page
                 - text: "ACTIONS"
                   on_press:
                     - lvgl.page.show: actions_page

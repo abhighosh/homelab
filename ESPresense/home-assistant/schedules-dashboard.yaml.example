@@ -36,8 +36,6 @@ views:
             name: "Saturday"
           - entity: input_boolean.roborock_schedule_sunday
             name: "Sunday"
-          - entity: automation.roborock_scheduled_clean
-            name: "Schedule automation"
 
       - type: entities
         title: "Husqvarna schedule"

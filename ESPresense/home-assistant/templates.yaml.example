@@ -121,7 +121,7 @@
       unique_id: "cat_in_forbidden_room"
       device_class: occupancy
       state: >-
-        {% set room = states('sensor.cat_collar_room') %}
+        {% set room = states('sensor.cat_collar_confirmed_room') %}
         {% set allowed = [
           'ground_hallway',
           'kitchen',
@@ -131,8 +131,6 @@
         ] %}
         {{ room in ['unknown', 'unavailable', 'not_home', '']
            or room not in allowed }}
-      delay_on:
-        seconds: 10
       icon: >-
         {{ 'mdi:alert-circle' if this.state == 'on' else 'mdi:shield-check' }}
 
@@ -140,14 +138,23 @@
       unique_id: "cat_not_detected"
       device_class: occupancy
       state: >-
-        {{ states('sensor.cat_collar_room')
+        {{ states('sensor.cat_collar_confirmed_room')
            in ['unknown', 'unavailable', 'not_home', ''] }}
-      delay_on:
-        seconds: 10
       icon: >-
-        {{ 'mdi:cat-off' if this.state == 'on' else 'mdi:cat' }}
+        {{ 'mdi:map-marker-off' if this.state == 'on' else 'mdi:cat' }}
 
 - sensor:
+    - name: "Panel Sonos Favorites"
+      unique_id: "panel_sonos_favorites"
+      icon: mdi:playlist-music
+      state: >-
+        {% set items = state_attr('sensor.sonos_favorites', 'items') or {} %}
+        {{ items | count }}
+      attributes:
+        labels: >-
+          {% set items = state_attr('sensor.sonos_favorites', 'items') or {} %}
+          {{ (items.values() | list)[:9] | join('|') }}
+
     - name: "Panel Room Tiles"
       unique_id: "cat_panel_room_tiles"
       icon: mdi:view-grid

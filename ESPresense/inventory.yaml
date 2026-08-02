@@ -110,9 +110,10 @@ pilot:
       ip_address: "192.168.0.31"
       deployment_status: "deployed_uncalibrated"
       role: "forbidden"
-      rx_adjustment_db: 0
+      rx_adjustment_db: 20
       absorption: 2.7
       max_distance_m: 16
+      calibration_note: "Applied +7 in firmware 4.0.6 after the ensuite read 5.1 dB stronger than the adjacent hallway while the collar was confirmed in the hallway, increased to +10 and then +16 after continued false wins. Increased to +20 after the +16 sample still overlapped: hallway 2.94-3.40 m versus ensuite 3.30-3.47 m. Live packets showed this firmware subtracts rxAdj from RSSI (the opposite sign to the current documentation). Validate from inside the ensuite before treating calibration as final."
 
   devices:
     cat_collar:
