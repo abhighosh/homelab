@@ -4,7 +4,7 @@ esphome:
   min_version: 2026.7.2
   project:
     name: homelab.crowpanel-dashboard
-    version: dashboard-39
+    version: dashboard-41
   on_boot:
     - priority: 600
       then:
@@ -25,6 +25,19 @@ esp32:
   flash_size: 16MB
   framework:
     type: esp-idf
+    # Standard ESP-IDF RGB-panel settings recommended by Elecrow and Espressif.
+    # Keep the CPU at its supported maximum, align the data cache for bounce-
+    # buffer transfers, and keep flash writes from interrupting PSRAM access
+    # used by the continuously scanned display framebuffer. Retain the 32 KB
+    # cache size: 64 KB left too little internal heap for Wi-Fi RX buffers on
+    # this feature-rich dashboard (ESP_ERR_NO_MEM during Wi-Fi initialization).
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_32KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
+      CONFIG_SPIRAM_RODATA: "y"
+      CONFIG_FREERTOS_HZ: "1000"
 
 psram:
   mode: octal
