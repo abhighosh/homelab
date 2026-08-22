@@ -11,34 +11,44 @@ cameras and the Nest stream supplied by Starling Home Hub.
   HomeKit.
 - Frigate's bundled go2rtc owns those RTSP connections and restreams them
   internally, avoiding duplicate connections from Frigate components.
-- Starling permits only one RTSP client. Scrypted owns that connection and its
-  Rebroadcast/Prebuffer plugin fans the stream out to HomeKit and the dedicated
-  Nest transcoder.
+- Starling permits only one RTSP client. The Arc-backed `nest-transcoder` owns
+  that connection, repairs the stream once, and publishes it to `nest-relay`.
+  Frigate and Scrypted independently consume the repaired relay output.
 - Starling's exported RTSP stream contains invalid H.264 frames and regressing
   timestamps. The faults were reproduced while decoding Starling directly
   with Scrypted stopped, in both Starling local and cloud streaming modes.
   Local mode is less damaged and must remain enabled.
-- `nest-transcoder` decodes Scrypted's copy of the Starling feed, conceals
-  damaged input frames, and produces a new 1080p15 H.264/AAC stream with a
+- `nest-transcoder` uses the Intel Arc A310's QSV media engine to decode
+  Starling feed directly, conceal damaged input frames, and
+  produce a new 1080p15 H.264/AAC stream with a
   two-second GOP and regenerated timestamps. Starling has been observed
   switching between 15 and 24 FPS. Normalising to the lower rate preserves
   every frame in 15 FPS mode and drops excess frames in 24 FPS mode instead of
   manufacturing frames when the source slows down. `nest-relay` makes the
-  repaired stream available only inside the Compose network. Frigate records
-  directly from the relay and uses the same stream for go2rtc live view.
-- Software x264 is deliberate. A measured NVDEC/NVENC test pinned the RTX 3080
-  in P2 at 100-102 W, compared with 14-16 W in P8. The `veryfast` x264 encode
-  uses roughly 50-90% of one logical CPU, is confined to physical core 5
-  (siblings 5 and 11), and runs at nice level 10 so interactive gaming work
-  receives scheduler priority.
+  repaired stream available inside the Compose network and on host loopback
+  port `8556` for Scrypted. Frigate records directly from the relay and uses
+  the same stream for go2rtc live view. The relay is not exposed to the LAN.
+- The Arc also performs Frigate's H.264 decode/scaling through QSV and object
+  inference through OpenVINO. The bundled MobileNetV2 model measured about
+  4 ms per inference on this host. Detection and motion processing run at
+  640x360 and 5 FPS on all six cameras. People, cats and dogs are tracked on
+  every camera; cars are additionally tracked in the garage.
+- The host udev rule installed by `install-arc-device-alias.sh` creates
+  `/dev/dri/arc-a310-render` by PCI identity. Compose maps only that node into
+  Frigate and the transcoder. It deliberately does not expose `/dev/dri`, the
+  NVIDIA render node, or NVIDIA container capabilities, so the RTX 3080 stays
+  assigned to the desktop and gaming/streaming workloads.
+- Frigate receives only `CAP_PERFMON`, allowing its Intel telemetry helper to
+  report Arc activity without privileged mode. The telemetry device is pinned
+  to the mapped Arc render node.
+- Frigate has a reduced CPU scheduling weight. Detection can use spare CPU at
+  idle, while desktop games and Steam streaming take priority under contention;
+  continuous recording still uses the cameras' original streams without video
+  encoding.
 - Recordings are retained continuously for 30 days.
-- Object detection, motion processing, event snapshots and Birdseye are
-  deliberately disabled because Tapo Care and HomeKit Secure Video already
-  provide detections. Neither Frigate nor the Nest transcoder is given access
-  to the NVIDIA GPU. Frigate uses CPU decoding at 640x360 and one frame per
-  second only for the camera/API state that Frigate requires, leaving the RTX
-  3080 available to games and able to idle. Recordings and go2rtc live streams
-  retain their 1920x1080 resolution.
+- Event snapshots and Birdseye remain disabled. Recordings and go2rtc live
+  streams retain their original 1920x1080 resolution; the lower resolution is
+  used only for motion/object analysis.
 - Port `8971` is the authenticated TLS UI/API. The unauthenticated port `5000`
   is deliberately not published. Docker binds the UI only to the stable LAN
   address. A persistent Tailscale Serve TCP forward exposes the same port to
@@ -63,16 +73,16 @@ Create these files under `/home/abhi/Docker/Frigate/secrets`, mode `600`:
 
 - `tapo_rtsp_user`
 - `tapo_rtsp_password`
-- `scrypted_nest_rtsp_url`
+- `starling_nest_rtsp_url`
 - `go2rtc_user`
 - `go2rtc_password`
 - `mqtt_password`
 
 The Tapo values are the camera account created in the Tapo app, not the TP-Link
 cloud account. Because they are embedded in RTSP URLs, percent-encode reserved
-URL characters in both values. `scrypted_nest_rtsp_url` is the private RTSP
-Rebroadcast URL shown by Scrypted for the Starling-backed Nest camera. Choose a
-separate random username and password for go2rtc clients. `mqtt_password` must
+URL characters in both values. `starling_nest_rtsp_url` is the private RTSP
+URL exported by Starling for the Nest camera. The transcoder must be Starling's
+only client. Choose a separate random username and password for go2rtc clients. `mqtt_password` must
 match the dedicated `frigate` account generated by the Git-backed Mosquitto
 stack on the Pi.
 
@@ -92,16 +102,22 @@ python3 -c 'import getpass, urllib.parse; print(urllib.parse.quote(getpass.getpa
 3. Partition, format and permanently mount the blank 4 TB surveillance disk at
    `/srv/frigate`. Use its filesystem UUID in `/etc/fstab` and do not use
    `nofail`; Frigate must never start against the underlying OS filesystem.
-4. Create the runtime directories and secret files.
-5. Validate with `docker compose --env-file .env config` from this directory.
-6. Configure Scrypted's Nest camera to use Starling directly, enable its
-   Rebroadcast mixin, and save the RTSP Rebroadcast URL in
-   `scrypted_nest_rtsp_url`. Scrypted must be Starling's only client. Enable
-   Starling's local network streaming mode; its cloud mode produces
-   substantially more H.264 and timestamp errors.
-7. Add a Git-backed Komodo stack using `UbuntuDesktop/Frigate/compose.yaml` and
+4. Install the stable Arc render-device alias:
+
+   ```sh
+   sudo ./install-arc-device-alias.sh
+   ```
+
+5. Create the runtime directories and secret files.
+6. Validate with `docker compose --env-file .env config` from this directory.
+7. Save Starling's private Nest RTSP URL in `starling_nest_rtsp_url`. Configure
+   Scrypted's Nest camera to use `rtsp://127.0.0.1:8556/nest`, and select
+   `FFmpeg Frame Generator` as the OpenCV motion decoder. Enable Starling's
+   local network streaming mode; its cloud mode produces substantially more
+   H.264 and timestamp errors.
+8. Add a Git-backed Komodo stack using `UbuntuDesktop/Frigate/compose.yaml` and
    deploy it to `ubuntu-desktop`.
-8. Configure the persistent tailnet listener once on `ubuntu-desktop`:
+9. Configure the persistent tailnet listener once on `ubuntu-desktop`:
 
    ```sh
    tailscale serve --bg --yes --tcp=8971 tcp://192.168.0.180:8971
@@ -110,21 +126,21 @@ python3 -c 'import getpass, urllib.parse; print(urllib.parse.quote(getpass.getpa
    `abhi` must first be configured as Tailscale's operator. Do not publish a
    second Docker port directly on the Tailscale address; that reintroduces the
    boot race this forward avoids.
-9. Read the generated initial admin password with `docker logs frigate`.
-10. Verify every live feed, recording playback and disk growth before changing
-   Scrypted or adding Home Assistant. Confirm that the RTX 3080 remains in P8
-   with zero encoder/decoder utilisation. Monitor transcoder CPU use and check
-   that host CPU topology still maps logical CPUs 5 and 11 to the same physical
-   core before moving this configuration to different hardware.
+10. Read the generated initial admin password with `docker logs frigate`.
+11. Verify every live feed, recording playback, detection and disk growth
+   before changing Scrypted or adding Home Assistant. Confirm that the RTX 3080
+   remains in P8 with zero encoder/decoder utilisation while the cameras are
+   active.
 
 ## Nest repair checks
 
-The Scrypted Nest device must retain its Rebroadcast mixin and remain sourced
-directly from Starling. Do not point it at Frigate's `nest` output, as that
-would create a stream loop. The transcoder is Scrypted's only Frigate-side
-consumer, so Scrypted still maintains only one connection to Starling.
+The transcoder must remain Starling's only client. Scrypted reads the repaired
+relay from `rtsp://127.0.0.1:8556/nest`; Frigate reads the same relay over the
+private Compose network. Scrypted should use `FFmpeg Frame Generator` for its
+OpenCV motion mixin so motion analysis does not depend on Python Codecs worker
+processes.
 
-MediaMTX intentionally has no published host ports. The transcoder has a
+MediaMTX publishes only a loopback host port for Scrypted. The transcoder has a
 ten-second RTSP read timeout and retries two seconds after FFmpeg exits. An
 internal watchdog probes the relay every 15 seconds and terminates FFmpeg after
 two consecutive failures, covering the case where FFmpeg remains alive after a
@@ -146,6 +162,7 @@ docker compose ps
 docker stats --no-stream frigate nest-transcoder
 nvidia-smi --query-gpu=pstate,power.draw,utilization.encoder,utilization.decoder \
   --format=csv,noheader
+readlink -f /dev/dri/arc-a310-render
 docker exec frigate /usr/lib/ffmpeg/7.0/bin/ffmpeg \
   -hide_banner -loglevel error -xerror \
   -i /media/frigate/recordings/YYYY-MM-DD/HH/nest/SS.mp4 \

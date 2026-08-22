@@ -4,7 +4,7 @@ esphome:
   min_version: 2026.7.2
   project:
     name: homelab.crowpanel-dashboard
-    version: dashboard-41
+    version: dashboard-43
   on_boot:
     - priority: 600
       then:
@@ -386,17 +386,29 @@ script:
             id(media_favorite_button_3), id(media_favorite_button_4),
             id(media_favorite_button_5), id(media_favorite_button_6),
             id(media_favorite_button_7), id(media_favorite_button_8),
-            id(media_favorite_button_9)
+            id(media_favorite_button_9), id(media_favorite_button_10),
+            id(media_favorite_button_11), id(media_favorite_button_12)
           };
           lv_obj_t *labels[] = {
             id(media_favorite_label_1), id(media_favorite_label_2),
             id(media_favorite_label_3), id(media_favorite_label_4),
             id(media_favorite_label_5), id(media_favorite_label_6),
             id(media_favorite_label_7), id(media_favorite_label_8),
-            id(media_favorite_label_9)
+            id(media_favorite_label_9), id(media_favorite_label_10),
+            id(media_favorite_label_11), id(media_favorite_label_12)
+          };
+          lv_obj_t *quick_buttons[] = {
+            id(media_quick_favorite_button_1),
+            id(media_quick_favorite_button_2),
+            id(media_quick_favorite_button_3)
+          };
+          lv_obj_t *quick_labels[] = {
+            id(media_quick_favorite_label_1),
+            id(media_quick_favorite_label_2),
+            id(media_quick_favorite_label_3)
           };
           size_t start = 0;
-          for (int i = 0; i < 9; i++) {
+          for (int i = 0; i < 12; i++) {
             std::string label;
             if (start <= data.size()) {
               size_t end = data.find('|', start);
@@ -428,10 +440,13 @@ script:
             replace_all(label, "\xE2\x88\x92", "-");
             replace_all(label, "\xC2\xA0", " ");
             lv_label_set_text(labels[i], label.c_str());
+            if (i < 3) lv_label_set_text(quick_labels[i], label.c_str());
             if (label.empty()) {
               lv_obj_add_state(buttons[i], LV_STATE_DISABLED);
+              if (i < 3) lv_obj_add_state(quick_buttons[i], LV_STATE_DISABLED);
             } else {
               lv_obj_clear_state(buttons[i], LV_STATE_DISABLED);
+              if (i < 3) lv_obj_clear_state(quick_buttons[i], LV_STATE_DISABLED);
             }
           }
 
@@ -511,6 +526,13 @@ text_sensor:
               if (x == "paused") return lv_color_hex(0x4C3D70);
               if (x == "unavailable") return lv_color_hex(0x5B1F2A);
               return lv_color_hex(0x102F45);
+        - lvgl.widget.update:
+            id: media_artwork_tint
+            bg_color: !lambda |-
+              if (x == "playing") return lv_color_hex(0x082C22);
+              if (x == "paused") return lv_color_hex(0x2D2445);
+              if (x == "unavailable") return lv_color_hex(0x3F1720);
+              return lv_color_hex(0x081B28);
   - platform: homeassistant
     id: sonos_title
     entity_id: media_player.kitchen_kitchen
@@ -585,6 +607,7 @@ text_sensor:
                 return x.empty() || x == "unknown" || x == "unavailable";
             then:
               - lvgl.widget.hide: overview_sonos_artwork
+              - lvgl.widget.hide: media_sonos_artwork
               - online_image.release: sonos_album_art
             else:
               # Home Assistant creates the small PNG asynchronously when this
@@ -602,6 +625,24 @@ text_sensor:
         - lvgl.label.update:
             id: media_source_label
             text: !lambda return x;
+
+  - platform: homeassistant
+    id: sonos_shuffle
+    entity_id: media_player.kitchen_kitchen
+    attribute: shuffle
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: media_shuffle_label
+            text: !lambda |-
+              const bool enabled = x == "true" || x == "on" || x == "1";
+              return enabled ? std::string("SHUFFLE ON")
+                             : std::string("SHUFFLE");
+        - lvgl.widget.update:
+            id: media_shuffle_button
+            bg_color: !lambda |-
+              const bool enabled = x == "true" || x == "on" || x == "1";
+              return lv_color_hex(enabled ? 0x176B4D : 0x25313A);
 
   - platform: homeassistant
     id: sonos_favorite_labels
@@ -1007,7 +1048,9 @@ image:
     format: PNG
     type: RGB565
     transparency: opaque
-    resize: 244x104
+    # One PSRAM-backed image serves both the large Media canvas and the clipped
+    # Overview preview. Avoiding a second decoded copy preserves heap headroom.
+    resize: 512x328
     update_interval: never
     # Smaller than the documented 64 KiB default to limit transient memory and
     # reduce the chance of a long decode starving the display/API tasks.
@@ -1018,9 +1061,14 @@ image:
       - lvgl.image.update:
           id: overview_sonos_artwork
           src: sonos_album_art
+      - lvgl.image.update:
+          id: media_sonos_artwork
+          src: sonos_album_art
       - lvgl.widget.show: overview_sonos_artwork
+      - lvgl.widget.show: media_sonos_artwork
     on_error:
       - lvgl.widget.hide: overview_sonos_artwork
+      - lvgl.widget.hide: media_sonos_artwork
 
 button:
   - platform: restart
@@ -1140,10 +1188,11 @@ lvgl:
             widgets:
               - image:
                   id: overview_sonos_artwork
-                  x: 0
-                  y: 0
-                  width: 244
-                  height: 104
+                  # Centre-crop the shared 512x328 artwork inside this preview.
+                  x: -134
+                  y: -112
+                  width: 512
+                  height: 328
                   src: sonos_album_art
                   hidden: true
               - obj:
@@ -1743,9 +1792,9 @@ lvgl:
             text: "MEDIA"
             text_font: montserrat_28
         - label:
-            x: 584
+            x: 548
             y: 24
-            width: 192
+            width: 228
             text: "Kitchen Sonos Play:1"
             text_align: RIGHT
             text_font: montserrat_14
@@ -1753,65 +1802,103 @@ lvgl:
         - obj:
             x: 24
             y: 58
-            width: 242
+            width: 512
             height: 328
             bg_color: 0x172231
-            border_width: 1
-            border_color: 0x334155
-            radius: 12
+            border_width: 0
+            radius: 14
             pad_all: 0
+            clip_corner: true
             scrollable: false
             widgets:
+              - image:
+                  id: media_sonos_artwork
+                  x: 0
+                  y: 0
+                  width: 512
+                  height: 328
+                  src: sonos_album_art
+                  hidden: true
+              - obj:
+                  id: media_artwork_tint
+                  x: 0
+                  y: 0
+                  width: 512
+                  height: 328
+                  bg_color: 0x081B28
+                  bg_opa: 56%
+                  border_width: 0
+                  radius: 0
+                  clickable: false
+                  scrollable: false
               - label:
-                  x: 14
-                  y: 12
+                  x: 18
+                  y: 16
                   text: "NOW PLAYING"
                   text_font: montserrat_14
-                  text_color: 0x93C5FD
+                  text_color: 0xBFDBFE
+              - label:
+                  id: media_source_label
+                  x: 300
+                  y: 16
+                  width: 194
+                  text: "Kitchen"
+                  text_align: RIGHT
+                  text_font: montserrat_12
+                  text_color: 0xCBD5E1
+                  long_mode: DOT
               - label:
                   id: media_title_label
-                  x: 14
-                  y: 42
-                  width: 214
-                  height: 54
+                  x: 18
+                  y: 50
+                  width: 476
+                  height: 62
                   text: "Nothing playing"
-                  text_font: montserrat_18
+                  text_font: montserrat_24
                   text_color: 0xFFFFFF
                   long_mode: WRAP
               - label:
                   id: media_artist_label
-                  x: 14
-                  y: 102
-                  width: 214
+                  x: 18
+                  y: 116
+                  width: 476
                   text: ""
-                  text_font: montserrat_14
-                  text_color: 0xCBD5E1
+                  text_font: montserrat_16
+                  text_color: 0xE2E8F0
                   long_mode: DOT
               - label:
                   id: media_state_label
-                  x: 14
-                  y: 132
-                  width: 92
+                  x: 18
+                  y: 150
+                  width: 150
                   text: "Idle"
                   text_font: montserrat_12
-                  text_color: 0x94A3B8
+                  text_color: 0xBFDBFE
               - label:
-                  id: media_source_label
-                  x: 108
-                  y: 132
-                  width: 120
-                  text: ""
+                  x: 340
+                  y: 150
+                  width: 90
+                  text: "VOLUME"
                   text_align: RIGHT
                   text_font: montserrat_12
-                  text_color: 0x94A3B8
-                  long_mode: DOT
+                  text_color: 0xCBD5E1
+              - label:
+                  id: media_volume_label
+                  x: 434
+                  y: 146
+                  width: 60
+                  text: "--%"
+                  text_align: RIGHT
+                  text_font: montserrat_16
+                  text_color: 0xFFFFFF
               - button:
-                  x: 14
-                  y: 164
-                  width: 64
-                  height: 54
-                  bg_color: 0x1D4058
-                  radius: 10
+                  x: 18
+                  y: 184
+                  width: 76
+                  height: 58
+                  bg_color: 0x18384D
+                  bg_opa: 88%
+                  radius: 29
                   on_press:
                     - homeassistant.action:
                         action: media_player.media_previous_track
@@ -1823,12 +1910,13 @@ lvgl:
                         text: !lambda return std::string(LV_SYMBOL_PREV);
                         text_font: montserrat_24
               - button:
-                  x: 89
-                  y: 164
-                  width: 64
-                  height: 54
+                  x: 104
+                  y: 178
+                  width: 70
+                  height: 70
                   bg_color: 0x176B4D
-                  radius: 10
+                  bg_opa: 94%
+                  radius: 35
                   on_press:
                     - homeassistant.action:
                         action: media_player.media_play_pause
@@ -1841,12 +1929,13 @@ lvgl:
                         text: !lambda return std::string(LV_SYMBOL_PLAY);
                         text_font: montserrat_24
               - button:
-                  x: 164
-                  y: 164
-                  width: 64
-                  height: 54
-                  bg_color: 0x1D4058
-                  radius: 10
+                  x: 184
+                  y: 184
+                  width: 76
+                  height: 58
+                  bg_color: 0x18384D
+                  bg_opa: 88%
+                  radius: 29
                   on_press:
                     - homeassistant.action:
                         action: media_player.media_next_track
@@ -1857,28 +1946,32 @@ lvgl:
                         align: CENTER
                         text: !lambda return std::string(LV_SYMBOL_NEXT);
                         text_font: montserrat_24
-              - label:
-                  x: 14
-                  y: 242
-                  text: "VOLUME"
-                  text_font: montserrat_12
-                  text_color: 0x94A3B8
-              - label:
-                  id: media_volume_label
-                  x: 160
-                  y: 238
-                  width: 68
-                  text: "--%"
-                  text_align: RIGHT
-                  text_font: montserrat_16
-                  text_color: 0xFFFFFF
               - button:
-                  x: 14
-                  y: 272
-                  width: 100
-                  height: 42
+                  x: 270
+                  y: 184
+                  width: 76
+                  height: 58
+                  bg_color: 0x18384D
+                  bg_opa: 88%
+                  radius: 29
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.media_stop
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: !lambda return std::string(LV_SYMBOL_STOP);
+                        text_font: montserrat_24
+              - button:
+                  x: 356
+                  y: 184
+                  width: 64
+                  height: 58
                   bg_color: 0x25313A
-                  radius: 9
+                  bg_opa: 88%
+                  radius: 29
                   on_press:
                     - homeassistant.action:
                         action: media_player.volume_down
@@ -1887,15 +1980,16 @@ lvgl:
                   widgets:
                     - label:
                         align: CENTER
-                        text: "VOLUME -"
-                        text_font: montserrat_12
+                        text: "-"
+                        text_font: montserrat_24
               - button:
-                  x: 128
-                  y: 272
-                  width: 100
-                  height: 42
+                  x: 430
+                  y: 184
+                  width: 64
+                  height: 58
                   bg_color: 0x25313A
-                  radius: 9
+                  bg_opa: 88%
+                  radius: 29
                   on_press:
                     - homeassistant.action:
                         action: media_player.volume_up
@@ -1904,16 +1998,183 @@ lvgl:
                   widgets:
                     - label:
                         align: CENTER
-                        text: "VOLUME +"
+                        text: "+"
+                        text_font: montserrat_24
+              - label:
+                  x: 158
+                  y: 279
+                  width: 336
+                  text: "Choose a favourite on the right"
+                  text_font: montserrat_12
+                  text_color: 0xCBD5E1
+                  long_mode: DOT
+              - button:
+                  id: media_shuffle_button
+                  x: 18
+                  y: 264
+                  width: 128
+                  height: 46
+                  bg_color: 0x25313A
+                  bg_opa: 90%
+                  radius: 23
+                  on_press:
+                    - homeassistant.action:
+                        action: media_player.shuffle_set
+                        data:
+                          entity_id: media_player.kitchen_kitchen
+                          shuffle: !lambda |-
+                            const auto state = id(sonos_shuffle).state;
+                            const bool enabled = state == "true" ||
+                                                 state == "on" || state == "1";
+                            return enabled ? std::string("false")
+                                           : std::string("true");
+                  widgets:
+                    - label:
+                        id: media_shuffle_label
+                        align: CENTER
+                        text: "SHUFFLE"
                         text_font: montserrat_12
+        - obj:
+            x: 548
+            y: 58
+            width: 228
+            height: 328
+            bg_color: 0x111C2B
+            border_width: 1
+            border_color: 0x26384B
+            radius: 14
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 14
+                  y: 14
+                  text: "QUICK PLAY"
+                  text_font: montserrat_14
+                  text_color: 0x93C5FD
+              - label:
+                  x: 14
+                  y: 38
+                  width: 200
+                  text: "Tap to play in the kitchen"
+                  text_font: montserrat_12
+                  text_color: 0x94A3B8
+              - button:
+                  id: media_quick_favorite_button_1
+                  x: 12
+                  y: 66
+                  width: 204
+                  height: 58
+                  bg_color: 0x1D4058
+                  radius: 10
+                  on_press:
+                    - homeassistant.event:
+                        event: esphome.crowpanel_media_favorite
+                        data: {slot: "1"}
+                  widgets:
+                    - label:
+                        id: media_quick_favorite_label_1
+                        align: CENTER
+                        width: 176
+                        text: "Waiting..."
+                        text_align: CENTER
+                        text_font: montserrat_14
+                        long_mode: DOT
+              - button:
+                  id: media_quick_favorite_button_2
+                  x: 12
+                  y: 134
+                  width: 204
+                  height: 58
+                  bg_color: 0x1D4058
+                  radius: 10
+                  on_press:
+                    - homeassistant.event:
+                        event: esphome.crowpanel_media_favorite
+                        data: {slot: "2"}
+                  widgets:
+                    - label:
+                        id: media_quick_favorite_label_2
+                        align: CENTER
+                        width: 176
+                        text: "Waiting..."
+                        text_align: CENTER
+                        text_font: montserrat_14
+                        long_mode: DOT
+              - button:
+                  id: media_quick_favorite_button_3
+                  x: 12
+                  y: 202
+                  width: 204
+                  height: 58
+                  bg_color: 0x1D4058
+                  radius: 10
+                  on_press:
+                    - homeassistant.event:
+                        event: esphome.crowpanel_media_favorite
+                        data: {slot: "3"}
+                  widgets:
+                    - label:
+                        id: media_quick_favorite_label_3
+                        align: CENTER
+                        width: 176
+                        text: "Waiting..."
+                        text_align: CENTER
+                        text_font: montserrat_14
+                        long_mode: DOT
+              - button:
+                  x: 12
+                  y: 272
+                  width: 204
+                  height: 44
+                  bg_color: 0x176B4D
+                  radius: 10
+                  on_press:
+                    - lvgl.page.show: media_favorites_page
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text: "MORE FAVOURITES  >"
+                        text_font: montserrat_12
+
+    - id: media_favorites_page
+      bg_color: 0x0B1220
+      widgets:
+        - label:
+            x: 24
+            y: 18
+            text: "SONOS FAVOURITES"
+            text_font: montserrat_28
+        - label:
+            x: 420
+            y: 24
+            width: 210
+            text: "Kitchen Sonos Play:1"
+            text_align: RIGHT
+            text_font: montserrat_14
+            text_color: 0x94A3B8
+        - button:
+            x: 646
+            y: 12
+            width: 130
+            height: 38
+            bg_color: 0x25313A
+            radius: 9
+            on_press:
+              - lvgl.page.show: media_page
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "<  NOW PLAYING"
+                  text_font: montserrat_12
         - button:
             id: media_favorite_button_1
-            x: 278
+            x: 24
             y: 58
-            width: 158
-            height: 104
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -1922,19 +2183,19 @@ lvgl:
               - label:
                   id: media_favorite_label_1
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: "Waiting..."
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_2
-            x: 448
+            x: 278
             y: 58
-            width: 158
-            height: 104
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -1943,19 +2204,19 @@ lvgl:
               - label:
                   id: media_favorite_label_2
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_3
-            x: 618
+            x: 532
             y: 58
-            width: 158
-            height: 104
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -1964,19 +2225,19 @@ lvgl:
               - label:
                   id: media_favorite_label_3
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_4
-            x: 278
-            y: 174
-            width: 158
-            height: 104
+            x: 24
+            y: 144
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -1985,19 +2246,19 @@ lvgl:
               - label:
                   id: media_favorite_label_4
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_5
-            x: 448
-            y: 174
-            width: 158
-            height: 104
+            x: 278
+            y: 144
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -2006,19 +2267,19 @@ lvgl:
               - label:
                   id: media_favorite_label_5
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_6
-            x: 618
-            y: 174
-            width: 158
-            height: 104
+            x: 532
+            y: 144
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -2027,19 +2288,19 @@ lvgl:
               - label:
                   id: media_favorite_label_6
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_7
-            x: 278
-            y: 290
-            width: 158
-            height: 104
+            x: 24
+            y: 230
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -2048,19 +2309,19 @@ lvgl:
               - label:
                   id: media_favorite_label_7
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_8
-            x: 448
-            y: 290
-            width: 158
-            height: 104
+            x: 278
+            y: 230
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -2069,19 +2330,19 @@ lvgl:
               - label:
                   id: media_favorite_label_8
                   align: CENTER
-                  width: 132
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14
                   long_mode: WRAP
         - button:
             id: media_favorite_button_9
-            x: 618
-            y: 290
-            width: 158
-            height: 104
+            x: 532
+            y: 230
+            width: 244
+            height: 76
             bg_color: 0x1D4058
-            radius: 12
+            radius: 11
             on_press:
               - homeassistant.event:
                   event: esphome.crowpanel_media_favorite
@@ -2090,7 +2351,70 @@ lvgl:
               - label:
                   id: media_favorite_label_9
                   align: CENTER
-                  width: 132
+                  width: 216
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_10
+            x: 24
+            y: 316
+            width: 244
+            height: 76
+            bg_color: 0x1D4058
+            radius: 11
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "10"}
+            widgets:
+              - label:
+                  id: media_favorite_label_10
+                  align: CENTER
+                  width: 216
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_11
+            x: 278
+            y: 316
+            width: 244
+            height: 76
+            bg_color: 0x1D4058
+            radius: 11
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "11"}
+            widgets:
+              - label:
+                  id: media_favorite_label_11
+                  align: CENTER
+                  width: 216
+                  text: ""
+                  text_align: CENTER
+                  text_font: montserrat_14
+                  long_mode: WRAP
+        - button:
+            id: media_favorite_button_12
+            x: 532
+            y: 316
+            width: 244
+            height: 76
+            bg_color: 0x1D4058
+            radius: 11
+            on_press:
+              - homeassistant.event:
+                  event: esphome.crowpanel_media_favorite
+                  data: {slot: "12"}
+            widgets:
+              - label:
+                  id: media_favorite_label_12
+                  align: CENTER
+                  width: 216
                   text: ""
                   text_align: CENTER
                   text_font: montserrat_14

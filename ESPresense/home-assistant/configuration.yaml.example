@@ -9,6 +9,12 @@ input_datetime: !include input_datetime.yaml
 sensor: !include sensors.yaml
 template: !include templates.yaml
 
+# Home Assistant prepares the Sonos image; the ESP32 only downloads and
+# displays the resulting fixed-size local PNG.
+shell_command:
+  update_crowpanel_artwork: >-
+    python3 /config/crowpanel_artwork.py "{{ picture_url }}"
+
 lovelace:
   dashboards:
     presence-tracking:

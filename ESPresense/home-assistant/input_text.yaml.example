@@ -41,3 +41,8 @@ panel_action_9_label:
   initial: "Unassigned"
   max: 24
   icon: mdi:gesture-tap-button
+
+panel_sonos_favorite_order:
+  name: "Sonos favourite order"
+  max: 255
+  icon: mdi:sort

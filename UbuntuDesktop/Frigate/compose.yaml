@@ -6,6 +6,10 @@ services:
     command: ["/mediamtx.yml"]
     volumes:
       - ./nest-transcode/mediamtx.yml:/mediamtx.yml:ro
+    # Scrypted uses host networking and consumes the repaired stream here.
+    # Loopback-only binding keeps the relay private to ubuntu-desktop.
+    ports:
+      - "127.0.0.1:8556:8554"
     healthcheck:
       test:
         - CMD
@@ -23,16 +27,17 @@ services:
     depends_on:
       nest-relay:
         condition: service_started
-    # Keep the continuous encode on one physical Zen 3 core (SMT siblings
-    # 5 and 11) and let interactive gaming work take scheduler priority.
-    cpuset: "5,11"
+    # Only the Arc render node is exposed. The RTX 3080 remains unavailable to
+    # this container and dedicated to display/gaming work.
+    devices:
+      - "/dev/dri/arc-a310-render:/dev/dri/renderD128"
     cpu_shares: 128
     entrypoint: ["/bin/bash", "/opt/nest-transcode/run.sh"]
     volumes:
       - ./nest-transcode/run.sh:/opt/nest-transcode/run.sh:ro
     secrets:
-      - source: scrypted_nest_rtsp_url
-        target: FRIGATE_SCRYPTED_NEST_RTSP_URL
+      - source: starling_nest_rtsp_url
+        target: FRIGATE_STARLING_NEST_RTSP_URL
     healthcheck:
       test:
         - CMD
@@ -53,10 +58,21 @@ services:
     image: ghcr.io/blakeblackshear/frigate:stable
     container_name: frigate
     restart: unless-stopped
+    # Use spare CPU freely at idle, but yield scheduler time to host gaming and
+    # Steam streaming workloads when the system is busy.
+    cpu_shares: 256
     stop_grace_period: 30s
     shm_size: "512mb"
     environment:
       TZ: Europe/London
+    # A host udev rule gives the Arc a stable name regardless of DRM probe
+    # order. Do not map /dev/dri wholesale: that would expose the RTX 3080.
+    devices:
+      - "/dev/dri/arc-a310-render:/dev/dri/renderD128"
+    # Allows Frigate's intel_gpu_top integration to read Arc utilization.
+    # This is substantially narrower than privileged mode.
+    cap_add:
+      - CAP_PERFMON
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${FRIGATE_DATA_PATH:-/home/abhi/Docker/Frigate/data}:/config
@@ -98,8 +114,8 @@ secrets:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_user
   tapo_rtsp_password:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_password
-  scrypted_nest_rtsp_url:
-    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/scrypted_nest_rtsp_url
+  starling_nest_rtsp_url:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/starling_nest_rtsp_url
   go2rtc_user:
     file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_user
   go2rtc_password:

@@ -16,8 +16,29 @@ auth:
   enabled: true
   cookie_secure: true
 
+telemetry:
+  stats:
+    # The container maps only the Arc at this path.
+    intel_gpu_device: "drm:/dev/dri/renderD128"
+
 ffmpeg:
   retry_interval: 10
+  # The container sees only the Arc A310 as /dev/dri/renderD128. QSV handles
+  # camera decoding/scaling without exposing or waking the RTX 3080.
+  hwaccel_args: preset-intel-qsv-h264
+
+detectors:
+  arc_openvino:
+    type: openvino
+    device: GPU
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
 
 go2rtc:
   rtsp:
@@ -27,8 +48,7 @@ go2rtc:
     garage:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream1#backchannel=0"
     living_room_side:
-      # FFmpeg remuxes this camera's glitchy RTSP output without transcoding.
-      - "ffmpeg:rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream1#video=copy#audio=copy"
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream1#backchannel=0"
     kitchen:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream1#backchannel=0"
     living_room_back:
@@ -36,22 +56,27 @@ go2rtc:
     snug:
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream1#backchannel=0"
     nest:
-      # The dedicated relay receives a repaired H.264/AAC stream from the
-      # Nest-only software transcoder. Scrypted remains Starling's sole client.
+      # The dedicated relay receives the repaired H.264/AAC stream. The
+      # transcoder is Starling's sole client; Frigate and Scrypted are readers.
       - "rtsp://nest-relay:8554/nest"
 
 detect:
-  enabled: false
-  # Frigate still decodes a small number of frames for camera/API state even
-  # when detection is disabled. One frame per second keeps that CPU cost low.
-  fps: 1
+  enabled: true
+  # Five frames per second is a useful detection cadence without processing
+  # every source frame. The Arc benchmarked this model at about 4 ms/inference.
+  fps: 5
   # This only controls Frigate's internal/API frame. Recordings and go2rtc
   # live streams retain the cameras' original resolution.
   width: 640
   height: 360
 
 motion:
-  enabled: false
+  enabled: true
+
+objects:
+  # Start with useful household classes and avoid persistent parked-car noise
+  # on every indoor camera. The garage adds car tracking below.
+  track: [person, cat, dog]
 
 record:
   enabled: true
@@ -75,6 +100,8 @@ cameras:
           roles: [record, detect]
     ui:
       order: 0
+    objects:
+      track: [person, car, cat, dog]
 
   living_room_side:
     ffmpeg:

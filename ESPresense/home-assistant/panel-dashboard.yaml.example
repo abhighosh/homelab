@@ -40,3 +40,23 @@ views:
           - script.panel_action_7
           - script.panel_action_8
           - script.panel_action_9
+
+  - title: Media
+    path: media
+    icon: mdi:music-box-multiple
+    cards:
+      - type: markdown
+        title: "Sonos favourite order"
+        content: >-
+          New favourites appear first automatically. To pin favourites in a
+          particular order, enter their names below separated by `|`, for
+          example `Starry Nights Radio|Radio 1`. Any names not listed are
+          appended newest-first. Names must match Sonos exactly.
+
+      - type: entities
+        title: "CrowPanel media"
+        icon: mdi:playlist-star
+        show_header_toggle: false
+        entities:
+          - input_text.panel_sonos_favorite_order
+          - sensor.panel_sonos_favorites

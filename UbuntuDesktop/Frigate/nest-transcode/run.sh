@@ -3,8 +3,9 @@ set -u
 
 readonly FFMPEG=/usr/lib/ffmpeg/7.0/bin/ffmpeg
 readonly FFPROBE=/usr/lib/ffmpeg/7.0/bin/ffprobe
-readonly SOURCE_SECRET=/run/secrets/FRIGATE_SCRYPTED_NEST_RTSP_URL
+readonly SOURCE_SECRET=/run/secrets/FRIGATE_STARLING_NEST_RTSP_URL
 readonly DESTINATION=rtsp://nest-relay:8554/nest
+readonly ARC_RENDER_DEVICE=/dev/dri/renderD128
 readonly WATCH_INTERVAL=15
 readonly WATCH_FAILURE_LIMIT=2
 
@@ -70,24 +71,30 @@ while true; do
   nice -n 10 "${FFMPEG}" \
     -hide_banner \
     -loglevel warning \
+    -init_hw_device "qsv=arc:${ARC_RENDER_DEVICE}" \
+    -filter_hw_device arc \
     -rtsp_transport tcp \
     -timeout 10000000 \
     -fflags +genpts+discardcorrupt \
     -use_wallclock_as_timestamps 1 \
+    -hwaccel qsv \
+    -hwaccel_device arc \
+    -hwaccel_output_format qsv \
     -i "${source_url}" \
     -map 0:v:0 \
     -map 0:a:0? \
-    -c:v libx264 \
+    -c:v h264_qsv \
     -preset veryfast \
-    -tune zerolatency \
+    -low_power 1 \
     -profile:v high \
     -level:v 4.1 \
-    -crf 23 \
+    -b:v 1800k \
     -maxrate:v 3M \
     -bufsize:v 6M \
     -g 30 \
-    -keyint_min 1 \
-    -sc_threshold 0 \
+    -forced_idr 1 \
+    -repeat_pps 1 \
+    -scenario videosurveillance \
     -bf 0 \
     -r 15 \
     -fps_mode cfr \

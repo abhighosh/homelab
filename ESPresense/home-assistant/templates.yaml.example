@@ -153,7 +153,31 @@
       attributes:
         labels: >-
           {% set items = state_attr('sensor.sonos_favorites', 'items') or {} %}
-          {{ (items.values() | list)[:9] | join('|') }}
+          {% set preferred =
+             states('input_text.panel_sonos_favorite_order').split('|') %}
+          {% set ns = namespace(recent=[], ordered=[], used=[]) %}
+          {% for item_id, label in items.items() %}
+            {% set sequence = item_id.rsplit('/', 1)[-1] | int(0) %}
+            {% set ns.recent = ns.recent + [[sequence, item_id, label]] %}
+          {% endfor %}
+          {% set recent = ns.recent | sort(attribute=0, reverse=true) %}
+          {% for requested in preferred %}
+            {% set wanted = requested | trim | lower %}
+            {% for entry in recent %}
+              {% if wanted and entry[2] | lower == wanted and
+                    entry[1] not in ns.used %}
+                {% set ns.ordered = ns.ordered + [entry] %}
+                {% set ns.used = ns.used + [entry[1]] %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {% for entry in recent %}
+            {% if entry[1] not in ns.used %}
+              {% set ns.ordered = ns.ordered + [entry] %}
+              {% set ns.used = ns.used + [entry[1]] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ordered[:12] | map(attribute=2) | join('|') }}
 
     - name: "Panel Room Tiles"
       unique_id: "cat_panel_room_tiles"

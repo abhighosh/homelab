@@ -34,13 +34,18 @@ Power this panel from a stable 5 V / 2 A source or powered data-capable USB
 connection. If the screen remains dark despite successful serial logs, confirm
 the PCB revision: V1.0/V1.1 use different backlight commands.
 
-The live CrowPanel dashboard has Overview, Presence, Climate, and Actions
+The live CrowPanel dashboard has Overview, Presence, Climate, Media, and Actions
 pages. Presence uses a 4-by-3 grid populated from Home Assistant, currently
 showing all eleven deployed ESPresense rooms. The Overview includes cat and
 iPhone location, weather and temperatures, heating/hot-water state, plus
 Roborock and Husqvarna status, battery level, and schedule controls. Camera
 snapshots are intentionally excluded: decoding and retaining multiple images
 leaves insufficient memory headroom for stable operation.
+The Media page reuses one Home Assistant-prepared 512 x 328 Sonos artwork
+buffer for its large now-playing canvas and the centre-cropped Overview tile.
+Playback, shuffle, and volume controls are overlaid on the artwork. Three quick
+favourites link to a separate 12-favourite browser populated and ordered by
+Home Assistant.
 After 60 seconds without touch, the board controller reduces the backlight to a
 low idle level while LVGL remains active and continues rendering Home Assistant
 state changes. This supplied panel behaves like Elecrow's legacy backlight

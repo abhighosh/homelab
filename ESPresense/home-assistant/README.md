@@ -18,6 +18,8 @@ Files:
 - `panel-dashboard.yaml.example`: the standalone display configuration.
 - `configuration.yaml.example`: the required include, dashboard, and HomeKit
   sections from `configuration.yaml`.
+- `crowpanel_artwork.py.example`: bounded server-side conversion of Sonos art
+  for the Overview preview and large Media canvas.
 
 To reproduce the current configuration:
 
@@ -52,6 +54,16 @@ The panel consumes two compact Home Assistant-managed strings:
   eleven-tile 4-by-3 grid on the CrowPanel.
 - `sensor.panel_action_labels`: combines the nine individual action-label
   helpers for the display.
+
+The CrowPanel Media page presents a large artwork-backed player with overlaid
+previous, play/pause, next, stop, shuffle, and volume controls. Its Quick Play
+rail uses the first three values from `sensor.panel_sonos_favorites`; **More
+favourites** opens a 3-by-4 browser. New Sonos favourites appear first by
+default. To pin entries in a custom order, edit
+`input_text.panel_sonos_favorite_order` on **Panel Configuration → Media**,
+using exact favourite names separated by `|`. Unlisted entries follow in
+newest-first order. Labels and playback IDs use the same ordering logic, so
+changing this helper or the Sonos favourites requires no panel reflash.
 
 Panel buttons emit `esphome.cat_panel_action` with a slot number. Edit the
 matching **Panel action 1–9** script under **Settings → Automations & scenes →
