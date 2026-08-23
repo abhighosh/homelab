@@ -20,6 +20,21 @@ deliberately replacing both database and authentication secrets.
 This is RomM Structure A: `/romm/library/roms/{platform}`. The filesystem
 watcher waits ten minutes after Syncthing changes before running a quick scan.
 
+## EmuDeck scan exclusions
+
+The persistent `data/config/config.yml` excludes EmuDeck content that is not a
+ROM, including `_info.txt`, scraped-media directories, the Vita3K
+`InstalledGames` symlink, Wii U `mlc01` runtime data, and backup files explicitly
+listed there. It also excludes the `desktop`, `emulators`, `model2`, `ps4`, and
+`xbox360` platform directories because they currently contain launchers or
+portable emulator files rather than games.
+
+If Xbox 360 games are added later, remove the `xbox360` platform exclusion only
+after placing the games directly below `roms/xbox360`; the current nested
+portable-Xenia layout is not a valid RomM Structure A game layout. Do not add a
+global exclusion for a directory named `roms`: Wii U currently uses that
+wrapper for its real game content.
+
 ## First deployment
 
 1. Run `UbuntuDesktop/RomM/bootstrap-secrets.sh` on `ubuntu-desktop` from a
