@@ -1,6 +1,6 @@
-# Independent ntfy delivery for Echo Show camera alerts. The existing Companion
-# App automation remains responsible for optional screen-on and automatic VLC
-# launch; this path provides reliable visible notifications and tap-to-view.
+# ntfy delivery for Echo Show camera alerts. Notifications remain passive until
+# tapped; automatic screen-on/live-view was removed because it depended on the
+# unreliable Home Assistant Companion local-push connection.
 automation:
   - id: echo_show_frigate_ntfy_camera_alert
     alias: "Echo Show · Frigate camera alert via ntfy"
