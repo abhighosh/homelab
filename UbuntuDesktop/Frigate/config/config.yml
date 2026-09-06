@@ -157,6 +157,13 @@ cameras:
       order: 4
 
   nest:
+    objects:
+      track:
+        - person
+        - cat
+        - dog
+        # This model aliases both the COCO car and truck classes to "car".
+        - car
     ffmpeg:
       inputs:
         # Read directly from the repaired relay so recording does not depend
