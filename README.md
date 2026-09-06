@@ -125,6 +125,14 @@ The ntfy Git-backed Komodo stack keeps its runtime database at
 repository checkout. Override `NTFY_DATA_PATH` in the Stack environment if the
 host path changes.
 
+The same server is published on `${NTFY_LAN_IP:-192.168.0.220}:2586` for the
+LAN-only Echo Show. Authentication remains deny-by-default, and each producer
+or consumer has access only to its own topic. Home Assistant publishes camera
+alerts with a topic-limited account; the Echo subscribes with a read-only account.
+The normal HTTPS endpoint remains the preferred route for Tailscale and iOS
+clients. Camera snapshots are external Frigate notification URLs rather than
+ntfy uploads, so attachment storage stays disabled.
+
 Home Assistant follows the same pattern: its Git-backed Compose definition is
 tracked under `HomeAssistant/`, while runtime configuration is kept at
 `/home/abhi/Docker/HomeAssistant/config` by default. Override

@@ -1,0 +1,135 @@
+# Independent ntfy delivery for Echo Show camera alerts. The existing Companion
+# App automation remains responsible for optional screen-on and automatic VLC
+# launch; this path provides reliable visible notifications and tap-to-view.
+automation:
+  - id: echo_show_frigate_ntfy_camera_alert
+    alias: "Echo Show · Frigate camera alert via ntfy"
+    description: >-
+      Publishes a snapshot notification through the self-hosted ntfy service.
+      Per-camera and master controls are shared with the Echo Show dashboard.
+    triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+    variables:
+      camera: "{{ trigger.payload_json.after.camera | default('', true) }}"
+      review_id: "{{ trigger.payload_json.after.id | default('', true) }}"
+      objects: "{{ trigger.payload_json.after.data.objects | default([], true) }}"
+      detection_id: >-
+        {{ (trigger.payload_json.after.data.detections | default([], true) | first)
+           | default('', true) }}
+      camera_names:
+        garage: Garage
+        living_room_side: Living-room side
+        kitchen: Kitchen
+        living_room_back: Living-room back
+        snug: Snug
+        nest: Outside
+      notification_helpers:
+        garage: input_boolean.echo_garage_notify
+        living_room_side: input_boolean.echo_living_room_side_notify
+        kitchen: input_boolean.echo_kitchen_notify
+        living_room_back: input_boolean.echo_living_room_back_notify
+        snug: input_boolean.echo_snug_notify
+        nest: input_boolean.echo_nest_notify
+      stream_intents:
+        garage: !secret echo_garage_rtsp
+        living_room_side: !secret echo_living_room_side_rtsp
+        kitchen: !secret echo_kitchen_rtsp
+        living_room_back: !secret echo_living_room_back_rtsp
+        snug: !secret echo_snug_rtsp
+        nest: !secret echo_nest_rtsp
+      camera_name: "{{ camera_names.get(camera, camera | replace('_', ' ') | title) }}"
+      notification_helper: "{{ notification_helpers.get(camera, '') }}"
+      stream_intent: "{{ stream_intents.get(camera, '') }}"
+      stream_uri: >-
+        {{ stream_intent
+           | regex_replace('^intent://', 'rtsp://')
+           | regex_replace('#Intent;.*$', '') }}
+      object_text: >-
+        {{ objects | map('replace', '_', ' ') | map('title') | sort | join(', ') }}
+    conditions:
+      - condition: state
+        entity_id: input_boolean.echo_camera_alerts_enabled
+        state: "on"
+      - condition: template
+        value_template: >-
+          {{ camera in camera_names and review_id | length > 0 and
+             detection_id | length > 0 and objects | count > 0 }}
+      - condition: template
+        value_template: >-
+          {{ notification_helper | length > 0 and
+             is_state(notification_helper, 'on') }}
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after.severity | default('') == 'alert' and
+             (trigger.payload_json.type | default('') == 'new' or
+              trigger.payload_json.before.severity | default('') != 'alert') }}
+    actions:
+      - action: ntfy.publish
+        continue_on_error: true
+        target:
+          entity_id: notify.echo_camera_alerts
+        data:
+          title: "{{ camera_name }} camera"
+          message: "{{ object_text }} detected"
+          priority: 4
+          tags:
+            - camera
+            - warning
+          sequence_id: "frigate-{{ review_id }}"
+          click: "{{ stream_uri }}"
+          attach: >-
+            http://192.168.0.220:8123/api/frigate/notifications/{{ detection_id }}/thumbnail.jpg?format=android
+          filename: "{{ camera }}-snapshot.jpg"
+          actions:
+            # Home Assistant 2026.7 uses `action`; newer releases renamed this
+            # field to `type`, so revisit it when Core is upgraded.
+            - action: view
+              label: View live
+              url: "{{ stream_uri }}"
+              clear: true
+            - action: view
+              label: Dashboard
+              url: http://192.168.0.220:8123/echo-show/home
+              clear: true
+    mode: queued
+    max: 10
+
+  - id: echo_show_frigate_ntfy_camera_alert_end
+    alias: "Echo Show · Clear finished ntfy camera alert"
+    description: "Dismisses the matching ntfy notification when its Frigate review ends."
+    triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+    variables:
+      review_id: "{{ trigger.payload_json.after.id | default('', true) }}"
+      camera: "{{ trigger.payload_json.after.camera | default('', true) }}"
+      notification_helpers:
+        garage: input_boolean.echo_garage_notify
+        living_room_side: input_boolean.echo_living_room_side_notify
+        kitchen: input_boolean.echo_kitchen_notify
+        living_room_back: input_boolean.echo_living_room_back_notify
+        snug: input_boolean.echo_snug_notify
+        nest: input_boolean.echo_nest_notify
+      notification_helper: "{{ notification_helpers.get(camera, '') }}"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.echo_camera_alerts_enabled
+        state: "on"
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.type | default('') == 'end' and
+             review_id | length > 0 }}
+      - condition: template
+        value_template: >-
+          {{ notification_helper | length > 0 and
+             is_state(notification_helper, 'on') }}
+    actions:
+      - action: ntfy.clear
+        continue_on_error: true
+        target:
+          entity_id: notify.echo_camera_alerts
+        data:
+          sequence_id: "frigate-{{ review_id }}"
+    mode: queued
+    max: 10

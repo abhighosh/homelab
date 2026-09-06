@@ -1,5 +1,8 @@
 default_config:
 
+homeassistant:
+  packages: !include_dir_named packages
+
 # Nginx Proxy Manager terminates HTTPS and reaches Home Assistant from the
 # shared proxy bridge. Do not broaden this to all private networks.
 http:
@@ -10,3 +13,7 @@ http:
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
+
+# The live installation also uses the UI-configured ntfy integration. Its token
+# and topic subentry remain protected in Home Assistant's runtime state; the
+# camera alert logic itself is mounted from the tracked packages directory.

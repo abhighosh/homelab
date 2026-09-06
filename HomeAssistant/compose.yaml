@@ -15,6 +15,9 @@ services:
     volumes:
       # Runtime state stays outside Komodo's disposable Git checkout.
       - ${HOME_ASSISTANT_CONFIG_PATH:-/home/abhi/Docker/HomeAssistant/config}:/config
+      # Small, reviewed automations can be versioned separately from Home
+      # Assistant's ignored runtime state and UI-managed configuration.
+      - ./packages:/config/packages:ro
       - /run/dbus:/run/dbus:ro
     healthcheck:
       test:

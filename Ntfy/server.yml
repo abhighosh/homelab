@@ -15,5 +15,6 @@ enable-signup: false
 # Notification messages and the authoritative message cache remain here.
 upstream-base-url: "https://ntfy.sh"
 
-# Infrastructure alerts do not need file uploads. Leaving the attachment cache
-# unset disables attachments and avoids unnecessary storage and attack surface.
+# Uploaded files remain disabled. Camera notifications use Frigate's temporary
+# snapshot URL as an external attachment, so ntfy does not duplicate or retain
+# image data on disk.
