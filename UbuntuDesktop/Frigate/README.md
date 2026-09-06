@@ -18,10 +18,16 @@ cameras and the Nest stream supplied by Starling Home Hub.
   timestamps. The faults were reproduced while decoding Starling directly
   with Scrypted stopped, in both Starling local and cloud streaming modes.
   Local mode is less damaged and must remain enabled.
-- `nest-transcoder` uses the Intel Arc A310's QSV media engine to decode
-  Starling feed directly, conceal damaged input frames, and
-  produce a new 1080p15 H.264/AAC stream with a
-  two-second GOP and regenerated timestamps. Starling has been observed
+- `nest-transcoder` deliberately decodes Starling in software with GStreamer's
+  libav decoder, which can discard frames explicitly marked as corrupt. Its
+  `videorate` stage holds the previous clean picture across the resulting
+  gaps, so decoder concealment damage is never baked into the repaired
+  stream. Raw video and audio then cross a local FIFO to FFmpeg; the Intel Arc
+  A310's QSV media engine performs the expensive H.264 encode and produces a
+  new 1080p15 H.264/AAC stream with a two-second GOP and regenerated
+  timestamps. A small top-left `YYYY-MM-DD HH:MM:SS` overlay uses the host's
+  `Europe/London` wall clock and matches the existing Tapo timestamp style.
+  Starling has been observed
   switching between 15 and 24 FPS. Normalising to the lower rate preserves
   every frame in 15 FPS mode and drops excess frames in 24 FPS mode instead of
   manufacturing frames when the source slows down. `nest-relay` makes the
@@ -140,13 +146,27 @@ private Compose network. Scrypted should use `FFmpeg Frame Generator` for its
 OpenCV motion mixin so motion analysis does not depend on Python Codecs worker
 processes.
 
-MediaMTX publishes only a loopback host port for Scrypted. The transcoder has a
-ten-second RTSP read timeout and retries two seconds after FFmpeg exits. An
-internal watchdog probes the relay every 15 seconds and terminates FFmpeg after
-two consecutive failures, covering the case where FFmpeg remains alive after a
-source stall. MediaMTX disconnects Frigate's readers and Frigate's normal
-watchdog reconnects when the repaired publisher returns. The five Tapo
-recording paths are independent of both Nest services.
+MediaMTX publishes only a loopback host port for Scrypted. GStreamer owns
+Starling's sole RTSP connection and discards corrupt decoded frames instead of
+allowing their concealed pixels into the output. FFmpeg consumes uncompressed
+audio/video locally and uses the Arc only for the new H.264 encode. An internal
+watchdog probes the relay every 15 seconds and terminates both stages after two
+consecutive failures, covering a source or publisher stall. The container then
+retries after two seconds. MediaMTX disconnects Frigate's readers and
+Frigate's normal watchdog reconnects when the repaired publisher returns. The
+five Tapo recording paths are independent of both Nest services.
+
+This design intentionally spends a small amount of CPU on one 1080p15 decode:
+the prior all-QSV FFmpeg pipeline concealed damaged macroblocks and then
+encoded the visible smear into an otherwise valid output stream. In deployment,
+the clean decoder and Arc encoder together use roughly one quarter to one
+third of a CPU core, while the RTX 3080 remains unavailable to the container.
+The timestamp is drawn while each clean frame is already in system memory,
+before upload to the Arc. Testing found no measurable additional CPU cost.
+No motion mask is configured initially: its relative size and styling match
+the five Tapo overlays that do not cause unwanted motion on this installation.
+Use Frigate's Motion Boxes debug view before adding a mask if that behaviour
+changes, because a mask should be evidence-driven and tightly scoped.
 
 The repaired 15 FPS stream measured about 1.83 Mbit/s including audio, or
 approximately 18.4 GiB/day for Nest. Its 3 Mbit/s video cap plus audio gives a

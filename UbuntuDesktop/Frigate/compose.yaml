@@ -21,9 +21,14 @@ services:
       start_period: 5s
 
   nest-transcoder:
-    image: ghcr.io/blakeblackshear/frigate:stable
+    image: frigate-nest-transcoder:local
+    build:
+      context: ./nest-transcode
+      dockerfile: Dockerfile
     container_name: frigate-nest-transcoder
     restart: unless-stopped
+    environment:
+      TZ: Europe/London
     depends_on:
       nest-relay:
         condition: service_started

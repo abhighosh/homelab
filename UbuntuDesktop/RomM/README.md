@@ -29,6 +29,11 @@ listed there. It also excludes the `desktop`, `emulators`, `model2`, `ps4`, and
 `xbox360` platform directories because they currently contain launchers or
 portable emulator files rather than games.
 
+The `Final Fantasy VII` and `Final Fantasy VIII` PSX disc-storage folders are
+also excluded. Their adjacent `.m3u` files remain the single catalogue and
+launch entries, preventing duplicate RomM cards without changing the shared
+EmuDeck/Syncthing library layout.
+
 If Xbox 360 games are added later, remove the `xbox360` platform exclusion only
 after placing the games directly below `roms/xbox360`; the current nested
 portable-Xenia layout is not a valid RomM Structure A game layout. Do not add a

@@ -60,6 +60,23 @@ go2rtc:
       # transcoder is Starling's sole client; Frigate and Scrypted are readers.
       - "rtsp://nest-relay:8554/nest"
 
+    # Low-bandwidth, on-demand feeds for the Echo Show dashboard. These do not
+    # change Frigate's recording/detection inputs: go2rtc opens each Tapo
+    # stream2 only while a tablet client is viewing it. Nest reuses the single
+    # repaired stream and therefore adds no further transcoding work.
+    echo_garage:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream2#backchannel=0"
+    echo_living_room_side:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream2#backchannel=0"
+    echo_kitchen:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream2#backchannel=0"
+    echo_living_room_back:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.207:554/stream2#backchannel=0"
+    echo_snug:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream2#backchannel=0"
+    echo_nest:
+      - "rtsp://nest-relay:8554/nest"
+
 detect:
   enabled: true
   # Five frames per second is a useful detection cadence without processing
