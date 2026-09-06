@@ -3,7 +3,8 @@ base-url: "https://ntfy.abhighosh.co.uk"
 behind-proxy: true
 
 # Persist recent messages so mobile clients can retrieve notifications missed
-# while disconnected. Authentication and access control are deny-by-default.
+# while disconnected. Access is deny-by-default; the camera-alert topic alone
+# has an anonymous read-only ACL so additional trusted displays need no account.
 cache-file: "/var/lib/ntfy/cache.db"
 cache-duration: "24h"
 auth-file: "/var/lib/ntfy/auth.db"
