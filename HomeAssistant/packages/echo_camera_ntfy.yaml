@@ -40,6 +40,8 @@ automation:
         nest: !secret echo_nest_rtsp
       camera_name: "{{ camera_names.get(camera, camera | replace('_', ' ') | title) }}"
       notification_helper: "{{ notification_helpers.get(camera, '') }}"
+      notification_sequence_id: >-
+        {{ ('frigate-' ~ review_id) | regex_replace('[^A-Za-z0-9_-]', '_') }}
       stream_intent: "{{ stream_intents.get(camera, '') }}"
       stream_uri: >-
         {{ stream_intent
@@ -76,7 +78,7 @@ automation:
           tags:
             - camera
             - warning
-          sequence_id: "frigate-{{ review_id }}"
+          sequence_id: "{{ notification_sequence_id }}"
           click: "{{ stream_uri }}"
           attach: >-
             http://192.168.0.220:8123/api/frigate/notifications/{{ detection_id }}/thumbnail.jpg?format=android
@@ -112,6 +114,8 @@ automation:
         snug: input_boolean.echo_snug_notify
         nest: input_boolean.echo_nest_notify
       notification_helper: "{{ notification_helpers.get(camera, '') }}"
+      notification_sequence_id: >-
+        {{ ('frigate-' ~ review_id) | regex_replace('[^A-Za-z0-9_-]', '_') }}
     conditions:
       - condition: state
         entity_id: input_boolean.echo_camera_alerts_enabled
@@ -130,6 +134,6 @@ automation:
         target:
           entity_id: notify.echo_camera_alerts
         data:
-          sequence_id: "frigate-{{ review_id }}"
+          sequence_id: "{{ notification_sequence_id }}"
     mode: queued
     max: 10
