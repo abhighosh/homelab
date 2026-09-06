@@ -60,21 +60,23 @@ go2rtc:
       # transcoder is Starling's sole client; Frigate and Scrypted are readers.
       - "rtsp://nest-relay:8554/nest"
 
-    # Low-bandwidth, on-demand feeds for the Echo Show dashboard. These do not
-    # change Frigate's recording/detection inputs: go2rtc opens each Tapo
-    # stream2 only while a tablet client is viewing it. Nest reuses the single
+    # Low-bandwidth, on-demand feeds for the Echo Show dashboard. The .mp4
+    # suffix is only a media-type hint that makes VLC's generic Android intent
+    # select its video player; these remain RTSP streams without remuxing.
+    # Frigate's recording/detection inputs are unaffected: go2rtc opens each
+    # Tapo stream2 only while the Echo is viewing it. Nest reuses the single
     # repaired stream and therefore adds no further transcoding work.
-    echo_garage:
+    "echo_garage.mp4":
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream2#backchannel=0"
-    echo_living_room_side:
+    "echo_living_room_side.mp4":
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream2#backchannel=0"
-    echo_kitchen:
+    "echo_kitchen.mp4":
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream2#backchannel=0"
-    echo_living_room_back:
+    "echo_living_room_back.mp4":
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.207:554/stream2#backchannel=0"
-    echo_snug:
+    "echo_snug.mp4":
       - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream2#backchannel=0"
-    echo_nest:
+    "echo_nest.mp4":
       - "rtsp://nest-relay:8554/nest"
 
 detect:

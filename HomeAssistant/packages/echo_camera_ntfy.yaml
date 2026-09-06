@@ -31,6 +31,9 @@ automation:
         living_room_back: input_boolean.echo_living_room_back_notify
         snug: input_boolean.echo_snug_notify
         nest: input_boolean.echo_nest_notify
+      # These secrets use the Echo-only go2rtc aliases ending in .mp4. The
+      # suffix makes VLC classify ntfy's generic ACTION_VIEW link as video;
+      # the payload remains RTSP and is not remuxed or transcoded.
       stream_intents:
         garage: !secret echo_garage_rtsp
         living_room_side: !secret echo_living_room_side_rtsp
