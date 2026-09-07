@@ -1,0 +1,45 @@
+# Maintain a compact, persistent summary of the latest Frigate reviews for the
+# Echo Show dashboard. Frigate already publishes this data over MQTT, so no
+# additional API credentials or polling are required.
+input_text:
+  echo_recent_frigate_detections:
+    name: Echo recent Frigate detections
+    max: 255
+    icon: mdi:cctv
+
+automation:
+  - id: echo_show_remember_recent_frigate_detections
+    alias: "Echo Show · Remember recent Frigate detections"
+    description: "Keeps the latest three Frigate review summaries for the Echo dashboard."
+    triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+    variables:
+      camera: "{{ trigger.payload_json.after.camera | default('', true) }}"
+      objects: "{{ trigger.payload_json.after.data.objects | default([], true) }}"
+      camera_names:
+        garage: Garage
+        living_room_side: Living-room side
+        kitchen: Kitchen
+        living_room_back: Living-room back
+        snug: Snug
+        nest: Outside
+      camera_name: "{{ camera_names.get(camera, camera | replace('_', ' ') | title) }}"
+      object_text: >-
+        {{ objects | map('replace', '_', ' ') | map('title') | sort | join(', ') }}
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.type | default('') == 'new' and
+             camera | length > 0 and objects | count > 0 }}
+    actions:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.echo_recent_frigate_detections
+        data:
+          value: >-
+            {% set current = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {% set item = {'t': now().strftime('%H:%M'), 'c': camera_name, 'o': object_text} %}
+            {{ ([item] + current)[:3] | to_json }}
+    mode: queued
+    max: 10
