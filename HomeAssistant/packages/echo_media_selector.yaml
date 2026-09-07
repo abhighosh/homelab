@@ -1,0 +1,10 @@
+input_select:
+  echo_media_player:
+    name: Media player
+    icon: mdi:speaker-multiple
+    options:
+      - Kitchen
+      - Snug
+      - Spotify
+    initial: Kitchen
+

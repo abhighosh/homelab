@@ -7,6 +7,74 @@ input_text:
     max: 255
     icon: mdi:cctv
 
+template:
+  - sensor:
+      - name: Echo clock time
+        unique_id: echo_clock_time
+        state: "{{ now().strftime('%H:%M') }}"
+      - name: Echo clock date
+        unique_id: echo_clock_date
+        state: "{{ now().strftime('%a %-d %b %Y') }}"
+      - name: Echo recent detections heading
+        unique_id: echo_recent_detections_heading
+        state: Recent detections
+      - name: Echo recent detection 1
+        unique_id: echo_recent_detection_1
+        state: >-
+          {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+          {% if events %}
+            {% set event = events[0] %}
+            {{ event.t }} · {{ event.c }} · {{ event.o }}
+          {% else %}
+            No recent detections
+          {% endif %}
+        attributes:
+          event_time: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[0].t if events else '' }}
+          event_camera: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[0].c if events else '' }}
+          event_object: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[0].o if events else '' }}
+      - name: Echo recent detection 2
+        unique_id: echo_recent_detection_2
+        availability: >-
+          {{ states('input_text.echo_recent_frigate_detections') | from_json([]) | count > 1 }}
+        state: >-
+          {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+          {% set event = events[1] if events | count > 1 else {'t': '', 'c': '', 'o': ''} %}
+          {{ event.t }} · {{ event.c }} · {{ event.o }}
+        attributes:
+          event_time: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[1].t if events | count > 1 else '' }}
+          event_camera: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[1].c if events | count > 1 else '' }}
+          event_object: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[1].o if events | count > 1 else '' }}
+      - name: Echo recent detection 3
+        unique_id: echo_recent_detection_3
+        availability: >-
+          {{ states('input_text.echo_recent_frigate_detections') | from_json([]) | count > 2 }}
+        state: >-
+          {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+          {% set event = events[2] if events | count > 2 else {'t': '', 'c': '', 'o': ''} %}
+          {{ event.t }} · {{ event.c }} · {{ event.o }}
+        attributes:
+          event_time: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[2].t if events | count > 2 else '' }}
+          event_camera: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[2].c if events | count > 2 else '' }}
+          event_object: >-
+            {% set events = states('input_text.echo_recent_frigate_detections') | from_json([]) %}
+            {{ events[2].o if events | count > 2 else '' }}
+
 automation:
   - id: echo_show_remember_recent_frigate_detections
     alias: "Echo Show · Remember recent Frigate detections"
