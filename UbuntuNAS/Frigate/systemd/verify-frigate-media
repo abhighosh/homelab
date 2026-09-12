@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+expected_uuid="fb965d80-8ede-4d84-916d-3be5be7fc724"
+mountpoint="/srv/frigate"
+
+actual_uuid="$(findmnt --noheadings --output UUID --target "$mountpoint" | tr -d '[:space:]')"
+options="$(findmnt --noheadings --output OPTIONS --target "$mountpoint")"
+
+if [ "$actual_uuid" != "$expected_uuid" ]; then
+    echo "Refusing to start Frigate: $mountpoint is not the expected filesystem ($expected_uuid)." >&2
+    exit 1
+fi
+
+case ",$options," in
+    *,rw,*) ;;
+    *)
+        echo "Refusing to start Frigate: $mountpoint is not mounted read-write." >&2
+        exit 1
+        ;;
+esac

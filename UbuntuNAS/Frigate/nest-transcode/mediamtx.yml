@@ -1,0 +1,22 @@
+logLevel: info
+logDestinations: [stdout]
+
+# This relay is intentionally internal to the Compose network. Frigate is its
+# only reader and the Nest transcoder is its only publisher.
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: :8554
+
+rtmp: false
+hls: false
+webrtc: false
+srt: false
+api: false
+metrics: false
+pprof: false
+playback: false
+
+paths:
+  nest:
+    source: publisher
+    overridePublisher: true

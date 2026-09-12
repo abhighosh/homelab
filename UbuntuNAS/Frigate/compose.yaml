@@ -1,0 +1,125 @@
+services:
+  nest-relay:
+    image: bluenviron/mediamtx:1.16.3
+    container_name: frigate-nest-relay
+    # Startup is owned by frigate-stack.service, which verifies the media mount.
+    restart: "no"
+    command: ["/mediamtx.yml"]
+    volumes:
+      - ./nest-transcode/mediamtx.yml:/mediamtx.yml:ro
+    # Scrypted uses host networking and consumes the repaired stream here.
+    # Loopback-only binding keeps the relay private to ubuntu-nas.
+    ports:
+      - "127.0.0.1:8556:8554"
+    healthcheck:
+      test:
+        - CMD
+        - /mediamtx
+        - --version
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  nest-transcoder:
+    image: frigate-nest-transcoder:local
+    build:
+      context: ./nest-transcode
+      dockerfile: Dockerfile
+    container_name: frigate-nest-transcoder
+    restart: "no"
+    environment:
+      TZ: Europe/London
+    depends_on:
+      nest-relay:
+        condition: service_started
+    # Expose only the N150 iGPU render node.
+    devices:
+      - "/dev/dri/renderD128:/dev/dri/renderD128"
+    entrypoint: ["/bin/bash", "/opt/nest-transcode/run.sh"]
+    volumes:
+      - ./nest-transcode/run.sh:/opt/nest-transcode/run.sh:ro
+    secrets:
+      - source: starling_nest_rtsp_url
+        target: FRIGATE_STARLING_NEST_RTSP_URL
+    healthcheck:
+      test:
+        - CMD
+        - /usr/lib/ffmpeg/7.0/bin/ffprobe
+        - -v
+        - error
+        - -rtsp_transport
+        - tcp
+        - -show_entries
+        - stream=codec_name
+        - rtsp://nest-relay:8554/nest
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frigate:
+    # Pin the current production version during migration. Upgrade separately.
+    image: ghcr.io/blakeblackshear/frigate:0.17.2
+    container_name: frigate
+    restart: "no"
+    stop_grace_period: 30s
+    shm_size: "512mb"
+    environment:
+      TZ: Europe/London
+    # The NAS has one physical Intel GPU. Map only its render node.
+    devices:
+      - "/dev/dri/renderD128:/dev/dri/renderD128"
+    # Allows Frigate's intel_gpu_top integration to read iGPU utilization.
+    # This is substantially narrower than privileged mode.
+    cap_add:
+      - CAP_PERFMON
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${FRIGATE_DATA_PATH:-/home/abhi/Docker/Frigate/data}:/config
+      - ./config/config.yml:/config/config.yml:ro
+      - ${FRIGATE_MEDIA_PATH:-/srv/frigate}:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "${FRIGATE_BIND_IP:-192.168.0.10}:8971:8971"
+      - "${FRIGATE_BIND_IP:-192.168.0.10}:8554:8554"
+      - "${FRIGATE_BIND_IP:-192.168.0.10}:8555:8555/tcp"
+      - "${FRIGATE_BIND_IP:-192.168.0.10}:8555:8555/udp"
+    secrets:
+      - source: tapo_rtsp_user
+        target: FRIGATE_TAPO_USER
+      - source: tapo_rtsp_password
+        target: FRIGATE_TAPO_PASSWORD
+      - source: go2rtc_user
+        target: FRIGATE_GO2RTC_USER
+      - source: go2rtc_password
+        target: FRIGATE_GO2RTC_PASSWORD
+      - source: mqtt_password
+        target: FRIGATE_MQTT_PASSWORD
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/version', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+
+secrets:
+  tapo_rtsp_user:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_user
+  tapo_rtsp_password:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/tapo_rtsp_password
+  starling_nest_rtsp_url:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/starling_nest_rtsp_url
+  go2rtc_user:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_user
+  go2rtc_password:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/go2rtc_password
+  mqtt_password:
+    file: ${FRIGATE_SECRETS_PATH:-/home/abhi/Docker/Frigate/secrets}/mqtt_password

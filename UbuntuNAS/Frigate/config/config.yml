@@ -1,0 +1,176 @@
+version: 0.17-0
+
+mqtt:
+  enabled: true
+  host: 192.168.0.220
+  port: 1883
+  user: frigate
+  password: "{FRIGATE_MQTT_PASSWORD}"
+  topic_prefix: frigate
+  client_id: frigate
+
+tls:
+  enabled: true
+
+auth:
+  enabled: true
+  cookie_secure: true
+
+telemetry:
+  stats:
+    # The container maps the N150 iGPU at this path.
+    intel_gpu_device: "drm:/dev/dri/renderD128"
+
+ffmpeg:
+  retry_interval: 10
+  # QSV on the N150 iGPU handles camera decoding and scaling.
+  hwaccel_args: preset-intel-qsv-h264
+
+detectors:
+  n150_openvino:
+    type: openvino
+    device: GPU
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+go2rtc:
+  rtsp:
+    username: "{FRIGATE_GO2RTC_USER}"
+    password: "{FRIGATE_GO2RTC_PASSWORD}"
+  streams:
+    garage:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream1#backchannel=0"
+    living_room_side:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream1#backchannel=0"
+    kitchen:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream1#backchannel=0"
+    living_room_back:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.207:554/stream1#backchannel=0"
+    snug:
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream1#backchannel=0"
+    nest:
+      # The dedicated relay receives the repaired H.264/AAC stream. The
+      # transcoder is Starling's sole client; Frigate and Scrypted are readers.
+      - "rtsp://nest-relay:8554/nest"
+
+    # Low-bandwidth, on-demand feeds for the Echo Show dashboard. The .mp4
+    # suffix is only a media-type hint that makes VLC's generic Android intent
+    # select its video player; these remain RTSP streams without remuxing.
+    # Frigate's recording/detection inputs are unaffected: go2rtc opens each
+    # Tapo stream2 only while the Echo is viewing it. Nest reuses the single
+    # repaired stream and therefore adds no further transcoding work.
+    "echo_garage.mp4":
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.100:554/stream2#backchannel=0"
+    "echo_living_room_side.mp4":
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.204:554/stream2#backchannel=0"
+    "echo_kitchen.mp4":
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.205:554/stream2#backchannel=0"
+    "echo_living_room_back.mp4":
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.207:554/stream2#backchannel=0"
+    "echo_snug.mp4":
+      - "rtsp://{FRIGATE_TAPO_USER}:{FRIGATE_TAPO_PASSWORD}@192.168.0.208:554/stream2#backchannel=0"
+    "echo_nest.mp4":
+      - "rtsp://nest-relay:8554/nest"
+
+detect:
+  enabled: true
+  # Five frames per second is a useful detection cadence without processing
+  # every source frame. Validate sustained inference time after migration.
+  fps: 5
+  # This only controls Frigate's internal/API frame. Recordings and go2rtc
+  # live streams retain the cameras' original resolution.
+  width: 640
+  height: 360
+
+motion:
+  enabled: true
+
+objects:
+  # Start with useful household classes and avoid persistent parked-car noise
+  # on every indoor camera. The garage adds car tracking below.
+  track: [person, cat, dog]
+
+record:
+  enabled: true
+  sync_recordings: true
+  continuous:
+    days: 30
+
+snapshots:
+  enabled: false
+
+birdseye:
+  enabled: false
+  restream: false
+
+cameras:
+  garage:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/garage
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 0
+    objects:
+      track: [person, car, cat, dog]
+
+  living_room_side:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/living_room_side
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 1
+
+  kitchen:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/kitchen
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 2
+
+  living_room_back:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/living_room_back
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 3
+
+  snug:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/snug
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 4
+
+  nest:
+    objects:
+      track:
+        - person
+        - cat
+        - dog
+        # This model aliases both the COCO car and truck classes to "car".
+        - car
+    ffmpeg:
+      inputs:
+        # Read directly from the repaired relay so recording does not depend
+        # on the go2rtc live-view consumer lifecycle.
+        - path: rtsp://nest-relay:8554/nest
+          input_args: preset-rtsp-restream
+          roles: [record, detect]
+    ui:
+      order: 5
