@@ -1,0 +1,27 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.9.4
+    container_name: open-webui
+    restart: unless-stopped
+    environment:
+      TZ: Europe/London
+      # This deployment is an interface for configured remote providers only.
+      # Ollama is intentionally disabled and is not a service dependency.
+      ENABLE_OLLAMA_API: "false"
+    volumes:
+      - ./data:/app/backend/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:8080/health | jq -e '.status == true' >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    networks:
+      proxy:
+        aliases:
+          - open-webui
+
+networks:
+  proxy:
+    external: true
+    name: proxy

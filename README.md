@@ -16,6 +16,7 @@ tooling for the Pi and `ubuntu-desktop`.
 - Nginx Proxy Manager
 - ntfy
 - Omada Controller
+- OpenWebUI on the Pi (without a local Ollama backend)
 - RomM
 - Uptime Kuma
 
@@ -92,6 +93,13 @@ this host. Its DoT and direct HTTPS ports bind only to the LAN address
 (`192.168.0.220` by default). Omada's host-mode networking is an intentional
 exception. Override the defaults with `TAILSCALE_IP` or `LAN_IP` when addresses
 change.
+
+OpenWebUI runs locally on the Pi and joins the shared `proxy` network without
+publishing a host port. Nginx Proxy Manager forwards
+`openwebui.abhighosh.co.uk` to `http://open-webui:8080`. Its persistent data is
+kept in the ignored `OpenWebUI/data/` directory. The local Ollama API is
+explicitly disabled; model providers configured through OpenWebUI remain
+stored in its application data.
 
 Komodo uses an ignored `komodo/compose.env` file containing deployment-specific settings:
 

@@ -16,6 +16,7 @@ NginxProxyManager/letsencrypt/
 UptimeKuma/data/
 Ntfy/data/
 Ntfy/bootstrap/
+OpenWebUI/data/
 HomeAssistant/config/
 ESPresense/data/
 ESPresense/display/config/.esphome/
