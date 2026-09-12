@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Steam Big Picture
+Comment=Console interface
+Exec=/usr/local/bin/steam-extest -gamepadui
+TryExec=/usr/local/bin/steam-extest
+Terminal=false
+OnlyShowIn=GNOME;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3

@@ -1,0 +1,65 @@
+#!/bin/sh
+set -eu
+
+EXTEST_COMMIT=cb77cd4f80f83393a24bae17dd975e14fa6eb1b2
+EXTEST_ARCHIVE_SHA256=11fcef9ab203593e577051b39387acb830d1afe4453af82902d2e652f4b5e9ed
+EXTEST_URL="https://github.com/Supreeeme/extest/archive/$EXTEST_COMMIT.tar.gz"
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+
+if ! id gaming >/dev/null 2>&1; then
+    echo "The gaming account does not exist." >&2
+    exit 1
+fi
+
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+dpkg --add-architecture i386
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    cargo \
+    curl \
+    gcc-multilib \
+    libstd-rust-dev:i386 \
+    rustc
+
+build_dir="$(mktemp -d /tmp/extest-build.XXXXXX)"
+trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
+
+curl -fL "$EXTEST_URL" -o "$build_dir/extest.tar.gz"
+printf '%s  %s\n' "$EXTEST_ARCHIVE_SHA256" "$build_dir/extest.tar.gz" \
+    | sha256sum --check --strict
+
+tar -xzf "$build_dir/extest.tar.gz" -C "$build_dir"
+source_dir="$build_dir/extest-$EXTEST_COMMIT"
+
+(
+    cd "$source_dir"
+    CARGO_HOME="$build_dir/cargo-home" cargo build --release --locked
+)
+
+library="$source_dir/target/i686-unknown-linux-gnu/release/libextest.so"
+test -f "$library"
+file "$library" | grep -q 'ELF 32-bit'
+
+install -d -m 755 /usr/local/lib/extest
+install -m 644 "$library" /usr/local/lib/extest/libextest.so
+
+install -d -m 755 /usr/local/share/doc/extest
+install -m 644 "$source_dir/README.md" /usr/local/share/doc/extest/README.md
+install -m 644 "$source_dir/LICENSE" /usr/local/share/doc/extest/LICENSE
+printf 'Upstream: https://github.com/Supreeeme/extest\nCommit: %s\nArchive SHA-256: %s\n' \
+    "$EXTEST_COMMIT" "$EXTEST_ARCHIVE_SHA256" \
+    > /usr/local/share/doc/extest/SOURCE
+chmod 644 /usr/local/share/doc/extest/SOURCE
+
+install -m 755 "$script_dir/steam-extest" /usr/local/bin/steam-extest
+
+"$script_dir/setup-steam-autostart"
+
+echo "Extest installed at /usr/local/lib/extest/libextest.so"
+echo "Restart Steam or log out and back in to activate it."
