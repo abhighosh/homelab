@@ -11,17 +11,17 @@
     unit: metric
 
 - glances:
-    url: http://100.118.235.83:61208
+    url: http://100.91.21.72:61208
     username: "{{HOMEPAGE_FILE_GLANCES_USERNAME}}"
     password: "{{HOMEPAGE_FILE_GLANCES_PASSWORD}}"
     version: 4
-    label: Ubuntu desktop
+    label: Ubuntu NAS
     cpu: true
     mem: true
     cputemp: true
     uptime: true
-    # This bind mount resides on ubuntu-desktop's root NVMe filesystem.
-    disk: /root/.config/glances
+    # This bind mount resides on the NAS's dedicated Frigate recording HDD.
+    disk: /hostfs/frigate
     unit: metric
 
 - datetime:

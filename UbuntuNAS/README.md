@@ -8,6 +8,8 @@ camera and emulator-repository workloads previously run on ubuntu-desktop.
 - Scrypted consumes Frigate's repaired Nest stream and the camera restreams.
 - Syncthing owns the emulator repository at `/srv/emulation` on NVMe.
 - RomM catalogues `/srv/emulation/roms` read-only.
+- Glances exposes authenticated host and Frigate-disk metrics to Homepage over
+  the tailnet.
 
 ubuntu-desktop remains a gaming machine and Syncthing client. Static emulator
 content is receive-only there, while saves and states remain send-receive.

@@ -25,6 +25,7 @@ ESPresense/display/config/.device-builder-preferences.json
 ESPresense/display/config/.device-builder.json
 ESPresense/display/config/.device-builder.json.lock
 UbuntuDesktop/Glances/config/
+UbuntuNAS/Glances/secrets/
 UbuntuDesktop/Scrypted/volume/
 UbuntuDesktop/Frigate/data/
 UbuntuDesktop/Frigate/secrets/

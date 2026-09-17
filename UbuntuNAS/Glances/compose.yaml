@@ -1,0 +1,31 @@
+services:
+  glances:
+    image: nicolargo/glances:4.5.4-full
+    container_name: glances
+    restart: unless-stopped
+    pid: host
+    environment:
+      TZ: Europe/London
+      GLANCES_OPT: "-w --password -u homepage --disable-autodiscover"
+    ports:
+      # Bind independently of tailscale0 so boot ordering cannot prevent the
+      # container from starting. Authentication protects the metrics API.
+      - "61208:61208"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
+      # Homepage displays capacity for the recording disk, not the OS NVMe.
+      - /srv/frigate:/hostfs/frigate:ro
+    secrets:
+      - source: glances_password
+        target: /root/.config/glances/homepage.pwd
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+secrets:
+  glances_password:
+    file: ./secrets/homepage.pwd
