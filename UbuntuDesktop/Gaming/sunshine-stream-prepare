@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+
+inhibitor=sunshine-stream-inhibit.service
+guard=$HOME/.local/bin/stream-compositor-guard
+
+if ! systemctl --user is-active --quiet "$inhibitor"; then
+    systemd-run --user --unit="${inhibitor%.service}" --collect --quiet -- \
+        /usr/bin/systemd-inhibit \
+        --what=sleep \
+        --who=Sunshine \
+        --why="Active game stream" \
+        --mode=block \
+        /usr/bin/sleep infinity
+fi
+
+# Fullscreen Vulkan applications such as Eden may use direct scanout. GNOME's
+# portal then retains the last composited frame even though the TV keeps
+# updating. Keep the output composited only for the lifetime of this stream.
+if ! "$guard" update; then
+    systemctl --user stop "$inhibitor" 2>/dev/null || true
+    exit 1
+fi
+
+if ! gdctl set --verify --layout-mode logical \
+    --logical-monitor \
+    --monitor HDMI-1 \
+    --mode "3840x2160@119.880+vrr" \
+    --color-mode sdr-native \
+    --primary \
+    --scale 2; then
+    systemctl --user stop "$inhibitor" 2>/dev/null || true
+    "$guard" update || true
+    exit 1
+fi

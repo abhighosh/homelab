@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+extension_uuid=sunshine-compositor@abhighosh.co.uk
+sunshine_inhibitor=sunshine-stream-inhibit.service
+steam_sink=steam-streaming-playback
+
+guard_required() {
+    systemctl --user is-active --quiet "$sunshine_inhibitor" ||
+        pactl list short sinks 2>/dev/null |
+            awk -v sink="$steam_sink" '$2 == sink { found = 1 } END { exit !found }'
+}
+
+extension_enabled() {
+    gnome-extensions info "$extension_uuid" 2>/dev/null |
+        grep -q '^  Enabled: Yes$'
+}
+
+case ${1:-update} in
+    update)
+        if guard_required; then
+            extension_enabled || gnome-extensions enable "$extension_uuid"
+        else
+            extension_enabled && gnome-extensions disable "$extension_uuid" || true
+        fi
+        ;;
+    *)
+        echo "Usage: $0 [update]" >&2
+        exit 2
+        ;;
+esac

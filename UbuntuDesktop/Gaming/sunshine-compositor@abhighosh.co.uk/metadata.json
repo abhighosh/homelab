@@ -1,0 +1,7 @@
+{
+  "uuid": "sunshine-compositor@abhighosh.co.uk",
+  "name": "Streaming Compositor Guard",
+  "description": "Keeps GNOME compositing fullscreen applications during Steam Remote Play and Sunshine sessions.",
+  "shell-version": ["50"],
+  "version": 1
+}

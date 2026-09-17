@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+guard=$HOME/.local/bin/stream-compositor-guard
+
+"$guard" update
+
+# Steam creates steam-streaming-playback when Remote Play starts and removes it
+# when the session ends. React to PipeWire/Pulse events rather than polling.
+pactl subscribe | while IFS= read -r event; do
+    case $event in
+        *" on sink "*|*" on server "*)
+            "$guard" update
+            ;;
+    esac
+done

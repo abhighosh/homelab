@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+
+ethernet_device=enp10s0
+networkmanager_connection=netplan-enp10s0
+usb_root_hub=usb3
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Run this script with sudo." >&2
+    exit 1
+fi
+
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+netplan set "ethernets.$ethernet_device.wakeonlan=true"
+netplan generate
+nmcli connection modify "$networkmanager_connection" \
+    802-3-ethernet.wake-on-lan magic
+ethtool -s "$ethernet_device" wol g
+
+install -m 644 "$script_dir/80-console-usb-wake.rules" \
+    /etc/udev/rules.d/80-console-usb-wake.rules
+install -m 755 "$script_dir/reprobe-8bitdo-after-resume" \
+    /usr/local/sbin/reprobe-8bitdo-after-resume
+install -m 644 "$script_dir/reprobe-8bitdo-after-resume.service" \
+    /etc/systemd/system/reprobe-8bitdo-after-resume.service
+systemctl daemon-reload
+systemctl enable reprobe-8bitdo-after-resume.service
+udevadm control --reload-rules
+
+usb_wakeup="/sys/bus/usb/devices/$usb_root_hub/power/wakeup"
+if [ ! -e "$usb_wakeup" ]; then
+    echo "Expected USB root hub $usb_root_hub was not found." >&2
+    exit 1
+fi
+printf '%s\n' enabled > "$usb_wakeup"
+
+echo "Wake-on-LAN, controller USB wake, and post-resume re-probe are enabled."
+echo "Ethernet MAC: $(cat "/sys/class/net/$ethernet_device/address")"

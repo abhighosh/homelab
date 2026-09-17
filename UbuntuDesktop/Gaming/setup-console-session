@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+user=${1:-gaming}
+uid=$(id -u "$user")
+runtime_dir="/run/user/$uid"
+
+if [ ! -S "$runtime_dir/bus" ]; then
+    echo "$user must have an active graphical session" >&2
+    exit 1
+fi
+
+run_gsettings() {
+    sudo -u "$user" env \
+        XDG_RUNTIME_DIR="$runtime_dir" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus" \
+        gsettings "$@"
+}
+
+# A dedicated autologin console account must not become trapped behind a
+# password prompt. GNOME's blank-only state also prevents XDG Portal capture,
+# so go directly from an available desktop to suspend after 15 idle minutes.
+# Sunshine's per-stream hook holds a sleep inhibitor while a client is active.
+run_gsettings set org.gnome.desktop.screensaver lock-enabled false
+run_gsettings set org.gnome.desktop.lockdown disable-lock-screen true
+run_gsettings set org.gnome.desktop.session idle-delay 0
+run_gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'suspend'
+run_gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout 900
+
+# Steam otherwise falls back to X11 desktop capture under Wayland.  The
+# PipeWire flag makes Remote Play use GNOME's native ScreenCast portal.
+install -d -m 0755 -o "$user" -g "$user" "/home/$user/.config/autostart"
+cat >"/home/$user/.config/autostart/steam.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Steam Big Picture
+Comment=Console interface
+Exec=/usr/local/bin/steam-extest -gamepadui -pipewire
+TryExec=/usr/local/bin/steam-extest
+Terminal=false
+OnlyShowIn=GNOME;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3
+EOF
+chown "$user:$user" "/home/$user/.config/autostart/steam.desktop"
+chmod 0644 "/home/$user/.config/autostart/steam.desktop"
+
+echo "Configured the unlocked, auto-suspending console session for $user."

@@ -1,0 +1,3 @@
+# The 8BitDo receiver is attached below this USB 2 root hub.
+# Wake the PC when the receiver changes from idle to its controller USB ID.
+ACTION=="add", SUBSYSTEM=="usb", KERNEL=="usb3", ATTR{power/wakeup}="enabled"

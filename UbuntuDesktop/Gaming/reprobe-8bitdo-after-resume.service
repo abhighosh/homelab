@@ -1,0 +1,10 @@
+[Unit]
+Description=Re-probe the 8BitDo receiver after system resume
+After=suspend.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/reprobe-8bitdo-after-resume
+
+[Install]
+WantedBy=suspend.target

@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+# The receiver changes from its idle identity (3107) to Xbox mode (3106) when
+# the controller wakes the PC.  Steam can miss that early resume-time hotplug.
+device_name=3-1
+device=/sys/bus/usb/devices/$device_name
+driver=/sys/bus/usb/drivers/usb
+
+# Let the USB controller and graphical session finish resuming first.
+sleep 3
+
+[ -r "$device/idVendor" ] || exit 0
+[ -r "$device/idProduct" ] || exit 0
+read -r vendor < "$device/idVendor"
+read -r product < "$device/idProduct"
+
+# Re-probe only the known 8BitDo receiver when it is presenting its active
+# Xbox-compatible controller interface.  An idle receiver needs no action.
+[ "$vendor" = 2dc8 ] || exit 0
+[ "$product" = 3106 ] || exit 0
+
+printf '%s' "$device_name" > "$driver/unbind"
+sleep 1
+printf '%s' "$device_name" > "$driver/bind"

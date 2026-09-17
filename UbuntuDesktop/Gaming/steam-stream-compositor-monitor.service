@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep GNOME compositing active during Steam Remote Play
+After=graphical-session.target pipewire-pulse.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/steam-stream-compositor-monitor
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

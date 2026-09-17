@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+user=${1:-gaming}
+uid=$(id -u "$user")
+runtime_dir="/run/user/$uid"
+app=dev.lizardbyte.app.Sunshine
+
+location=$(flatpak info --show-location "$app")
+
+install -m 0644 \
+    "$location/files/share/sunshine/modules-load.d/60-sunshine.conf" \
+    /etc/modules-load.d/60-sunshine.conf
+install -m 0644 \
+    "$location/files/share/sunshine/udev/rules.d/60-sunshine.rules" \
+    /etc/udev/rules.d/60-sunshine.rules
+
+modprobe uhid
+udevadm control --reload-rules
+udevadm trigger --property-match=DEVNAME=/dev/uinput || true
+udevadm trigger --property-match=DEVNAME=/dev/uhid || true
+udevadm trigger --subsystem-match=hidraw || true
+udevadm trigger --subsystem-match=input || true
+
+install -d -m 0755 -o "$user" -g "$user" "/home/$user/.config/systemd/user"
+install -m 0644 -o "$user" -g "$user" \
+    "$location/files/share/sunshine/systemd/user/app-$app.service" \
+    "/home/$user/.config/systemd/user/app-$app.service"
+
+if [ -d "$runtime_dir" ]; then
+    sudo -u "$user" env XDG_RUNTIME_DIR="$runtime_dir" \
+        systemctl --user daemon-reload
+    sudo -u "$user" env XDG_RUNTIME_DIR="$runtime_dir" \
+        systemctl --user enable --now "app-$app.service"
+else
+    echo "Host support installed; enable Sunshine after $user logs in." >&2
+fi

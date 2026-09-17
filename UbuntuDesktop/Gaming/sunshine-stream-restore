@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+inhibitor=sunshine-stream-inhibit.service
+guard=$HOME/.local/bin/stream-compositor-guard
+
+# Always release the inhibitor, even if the display was disconnected while a
+# stream was ending and its configuration cannot presently be restored.
+cleanup() {
+    systemctl --user stop "$inhibitor" 2>/dev/null || true
+    "$guard" update || true
+}
+trap cleanup EXIT
+
+gdctl set --verify --layout-mode logical \
+    --logical-monitor \
+    --monitor HDMI-1 \
+    --mode "3840x2160@119.880+vrr" \
+    --color-mode bt2100 \
+    --primary \
+    --scale 2

@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+user=${1:-gaming}
+home=$(getent passwd "$user" | cut -d: -f6)
+uid=$(id -u "$user")
+runtime_dir=/run/user/$uid
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+extension_uuid=sunshine-compositor@abhighosh.co.uk
+
+if [ -z "$home" ]; then
+    echo "Unable to find the home directory for $user" >&2
+    exit 1
+fi
+
+install -d -m 0755 -o "$user" -g "$user" \
+    "$home/.local/bin" \
+    "$home/.local/share/gnome-shell/extensions/$extension_uuid" \
+    "$home/.config/systemd/user"
+
+for file in stream-compositor-guard steam-stream-compositor-monitor; do
+    install -m 0755 -o "$user" -g "$user" \
+        "$script_dir/$file" "$home/.local/bin/$file"
+done
+
+for file in sunshine-stream-prepare sunshine-stream-restore; do
+    install -m 0755 -o "$user" -g "$user" \
+        "$script_dir/$file" "$home/.local/bin/$file"
+done
+
+install -m 0644 -o "$user" -g "$user" \
+    "$script_dir/steam-stream-compositor-monitor.service" \
+    "$home/.config/systemd/user/steam-stream-compositor-monitor.service"
+
+for file in metadata.json extension.js; do
+    install -m 0644 -o "$user" -g "$user" \
+        "$script_dir/$extension_uuid/$file" \
+        "$home/.local/share/gnome-shell/extensions/$extension_uuid/$file"
+done
+
+if [ -d "$runtime_dir" ]; then
+    sudo -u "$user" env XDG_RUNTIME_DIR="$runtime_dir" \
+        systemctl --user daemon-reload
+    sudo -u "$user" env XDG_RUNTIME_DIR="$runtime_dir" \
+        systemctl --user enable --now steam-stream-compositor-monitor.service
+else
+    echo "Files installed; enable the monitor after $user logs in." >&2
+fi
