@@ -1,0 +1,25 @@
+services:
+  e1001-artwork:
+    build: .
+    container_name: e1001-artwork
+    restart: unless-stopped
+    network_mode: host
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      TZ: Europe/London
+      E1001_PORT: "8765"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./:/app:ro
+      - ./output:/app/output:rw
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

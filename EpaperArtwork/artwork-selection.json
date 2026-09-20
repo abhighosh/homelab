@@ -1,0 +1,55 @@
+{
+  "style": "hand-ink-v1",
+  "selected_base": "assets/house/day-clear-hand-ink-v1.png",
+  "display": {
+    "width": 800,
+    "height": 480,
+    "gray_levels": [0, 85, 170, 255]
+  },
+  "weather_groups": ["clear", "cloudy", "rain", "fog", "snow"],
+  "dayparts": ["dawn", "day", "dusk", "night"],
+  "variants": {
+    "dawn_clear": {"path": "assets/house/dawn-clear-hand-ink-v1.png", "status": "awaiting_review"},
+    "dawn_cloudy": {"path": "assets/house/dawn-cloudy-hand-ink-v1.png", "status": "awaiting_review"},
+    "dawn_rain": {"path": "assets/house/dawn-rain-hand-ink-v1.png", "status": "awaiting_review"},
+    "dawn_fog": {"path": "assets/house/dawn-fog-hand-ink-v1.png", "status": "awaiting_review"},
+    "dawn_snow": {"path": "assets/house/dawn-snow-hand-ink-v1.png", "status": "awaiting_review"},
+    "day_clear": {"path": "assets/house/day-clear-hand-ink-v1.png", "status": "approved"},
+    "day_cloudy": {"path": "assets/house/day-cloudy-hand-ink-v1.png", "status": "awaiting_review"},
+    "day_rain": {"path": "assets/house/day-rain-hand-ink-v6.png", "status": "approved"},
+    "day_fog": {"path": "assets/house/day-fog-hand-ink-v1.png", "status": "awaiting_review"},
+    "day_snow": {"path": "assets/house/day-snow-hand-ink-v1.png", "status": "awaiting_review"},
+    "dusk_clear": {"path": "assets/house/dusk-clear-hand-ink-v1.png", "status": "awaiting_review"},
+    "dusk_cloudy": {"path": "assets/house/dusk-cloudy-hand-ink-v1.png", "status": "awaiting_review"},
+    "dusk_rain": {"path": "assets/house/dusk-rain-hand-ink-v1.png", "status": "awaiting_review"},
+    "dusk_fog": {"path": "assets/house/dusk-fog-hand-ink-v1.png", "status": "awaiting_review"},
+    "dusk_snow": {"path": "assets/house/dusk-snow-hand-ink-v2.png", "status": "awaiting_review"},
+    "night_clear": {"path": "assets/house/night-clear-hand-ink-v1.png", "status": "awaiting_review"},
+    "night_cloudy": {"path": "assets/house/night-cloudy-hand-ink-v1.png", "status": "awaiting_review"},
+    "night_rain": {"path": "assets/house/night-rain-hand-ink-v1.png", "status": "awaiting_review"},
+    "night_fog": {"path": "assets/house/night-fog-hand-ink-v1.png", "status": "awaiting_review"},
+    "night_snow": {"path": "assets/house/night-snow-hand-ink-v1.png", "status": "awaiting_review"}
+  },
+  "special_editions": {
+    "christmas": {"path": "assets/house/special-christmas-hand-ink-v1.png", "status": "approved", "enabled": true},
+    "halloween": {"path": "assets/house/special-halloween-hand-ink-v1.png", "status": "approved", "enabled": true},
+    "new_year": {"path": "assets/house/special-new-year-hand-ink-v1.png", "status": "approved", "enabled": true},
+    "bonfire_night": {"path": "assets/house/special-bonfire-night-hand-ink-v1.png", "status": "approved", "enabled": true},
+    "birthday_sarah_jane": {
+      "path": "assets/house/special-birthday-sarah-jane-hand-ink-v1.png",
+      "display_name": "Sarah-Jane's Birthday",
+      "month_day": "12-19",
+      "greeting": "Happy Birthday, Sarah-Jane!",
+      "status": "approved",
+      "enabled": true
+    },
+    "birthday_abhi": {
+      "path": "assets/house/special-birthday-abhi-hand-ink-v1.png",
+      "display_name": "Abhi's Birthday",
+      "month_day": "11-16",
+      "greeting": "Happy Birthday, Abhi!",
+      "status": "approved",
+      "enabled": true
+    }
+  }
+}

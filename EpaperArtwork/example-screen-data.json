@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-20",
+  "location_label": "Oxfordshire",
+  "latitude": 51.752,
+  "longitude": -1.258,
+  "portrait_variant": "day_clear",
+  "map": {
+    "source": "osm_lines",
+    "latitude": 51.89769,
+    "longitude": -1.11603,
+    "width_km": 185,
+    "places": [
+      {"name": "Launton", "latitude": 51.89769, "longitude": -1.11603, "label_offset": [18, 10]},
+      {"name": "Bicester", "latitude": 51.904, "longitude": -1.155, "label_offset": [-77, -27]},
+      {"name": "Oxford", "latitude": 51.751977, "longitude": -1.257647, "label_offset": [-45, -28]},
+      {"name": "Abingdon", "latitude": 51.6714842, "longitude": -1.2779715, "label_offset": [-76, -28]},
+      {"name": "Witney", "latitude": 51.7838848, "longitude": -1.4852861, "label_offset": [-66, -25]},
+      {"name": "Banbury", "latitude": 52.0601807, "longitude": -1.3402795, "label_offset": [10, 5]},
+      {"name": "Thame", "latitude": 51.7482733, "longitude": -0.9781805, "label_offset": [10, -25]},
+      {"name": "Chipping Norton", "latitude": 51.9418212, "longitude": -1.5455303},
+      {"name": "Brackley", "latitude": 52.0278975, "longitude": -1.1484657},
+      {"name": "Buckingham", "latitude": 51.999928, "longitude": -0.9876832},
+      {"name": "Milton Keynes", "latitude": 52.0406502, "longitude": -0.7594092},
+      {"name": "Aylesbury", "latitude": 51.8161412, "longitude": -0.8130383}
+    ],
+    "priority_places": ["Launton", "Oxford", "Abingdon", "Bicester", "Banbury", "Witney", "Thame", "Chipping Norton", "Brackley", "Buckingham", "Milton Keynes", "Aylesbury"]
+  },
+  "forecast": {
+    "condition": "Partly cloudy",
+    "high_c": 19,
+    "low_c": 11,
+    "rain_chance_percent": 20
+  },
+  "map_live": {
+    "wind_bearing": 225,
+    "wind_speed": 8,
+    "wind_unit": "mph",
+    "rain_next_hour_percent": 20,
+    "updated_at": "2026-09-20T14:00:00+01:00",
+    "sample": true
+  },
+  "almanac": {
+    "sunrise": "06:48",
+    "sunset": "19:08",
+    "civil_dawn": "06:14",
+    "civil_dusk": "19:42",
+    "moon_phase": "Waxing Gibbous",
+    "moon_illumination_percent": 65,
+    "moonrise": "16:56",
+    "source": "US Naval Observatory one-day API, Oxford centre, 20 September 2026, BST"
+  }
+}
