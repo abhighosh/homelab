@@ -32,9 +32,9 @@
   },
   "special_editions": {
     "christmas": {"path": "assets/house/special-christmas-hand-ink-v1.png", "status": "approved", "enabled": true},
-    "halloween": {"path": "assets/house/special-halloween-hand-ink-v1.png", "status": "approved", "enabled": true},
-    "new_year": {"path": "assets/house/special-new-year-hand-ink-v1.png", "status": "approved", "enabled": true},
-    "bonfire_night": {"path": "assets/house/special-bonfire-night-hand-ink-v1.png", "status": "approved", "enabled": true},
+    "halloween": {"path": "assets/house/special-halloween-hand-ink-v2.png", "status": "approved", "enabled": true},
+    "new_year": {"path": "assets/house/special-new-year-hand-ink-v2.png", "status": "approved", "enabled": true},
+    "bonfire_night": {"path": "assets/house/special-bonfire-night-hand-ink-v2.png", "status": "approved", "enabled": true},
     "birthday_sarah_jane": {
       "path": "assets/house/special-birthday-sarah-jane-hand-ink-v1.png",
       "display_name": "Sarah-Jane's Birthday",
