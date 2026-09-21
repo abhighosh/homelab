@@ -7,10 +7,12 @@ import unittest
 from datetime import datetime, timezone
 
 from screen_mode import PAGES, RANDOM_PAGES, ScreenMode
-from render_screens import WEATHER_FONT, WEATHER_GLYPHS, horizontal, sidereal_degrees, weather_kind
+from render_screens import (DARK, WEATHER_FONT, WEATHER_GLYPHS, WHITE,
+                            draw_dynamic_moon, horizontal, sidereal_degrees,
+                            weather_kind)
 from map_imagery import map_bbox, mercator
 from fetch_road_map import inverse_mercator
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
 
 class ScreenModeTests(unittest.TestCase):
@@ -42,6 +44,21 @@ class ScreenModeTests(unittest.TestCase):
 
 
 class SkyGeometryTests(unittest.TestCase):
+    def test_dynamic_moon_respects_waxing_and_waning_phase(self) -> None:
+        waxing = Image.new("L", (800, 480), 0)
+        draw_dynamic_moon(waxing, {
+            "moon_illumination_percent": 50, "moon_phase": "First Quarter",
+        })
+        self.assertEqual(waxing.getpixel((626, 80)), WHITE)
+        self.assertEqual(waxing.getpixel((606, 80)), DARK)
+
+        waning = Image.new("L", (800, 480), 0)
+        draw_dynamic_moon(waning, {
+            "moon_illumination_percent": 50, "moon_phase": "Last Quarter",
+        })
+        self.assertEqual(waning.getpixel((606, 80)), WHITE)
+        self.assertEqual(waning.getpixel((626, 80)), DARK)
+
     def test_zenith_star_is_overhead(self) -> None:
         moment = datetime(2026, 9, 20, 20, tzinfo=timezone.utc)
         lst = sidereal_degrees(moment, -1.258)

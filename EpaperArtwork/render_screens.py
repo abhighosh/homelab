@@ -61,9 +61,35 @@ def portrait_path(data: dict) -> Path:
     return prepared
 
 
+def draw_dynamic_moon(image: Image.Image, almanac: dict) -> None:
+    """Draw the real phase into the clear-night sky of a prepared portrait."""
+    illumination = max(0.0, min(1.0, float(almanac["moon_illumination_percent"]) / 100))
+    if illumination < 0.03:
+        return
+    waxing = almanac["moon_phase"].casefold().startswith("waxing") or \
+        almanac["moon_phase"].casefold() == "first quarter"
+    draw = ImageDraw.Draw(image)
+    cx, cy, radius = 616, 80, 19
+    draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), fill=DARK)
+    for y in range(cy - radius, cy + radius + 1):
+        half_width = math.sqrt(max(0, radius * radius - (y - cy) ** 2))
+        threshold = cx + (1 - 2 * illumination) * half_width if waxing else \
+            cx + (2 * illumination - 1) * half_width
+        for x in range(math.ceil(cx - half_width), math.floor(cx + half_width) + 1):
+            lit = x >= threshold if waxing else x <= threshold
+            if lit:
+                draw.point((x, y), fill=WHITE)
+    draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=BLACK, width=1)
+
+
 def portrait(data: dict) -> Image.Image:
     with Image.open(portrait_path(data)) as source:
-        return source.convert("L")
+        image = source.convert("L")
+    # Cloud, rain, fog and snow naturally obscure the moon; only the selected
+    # clear-night base contains a deliberately empty patch of sky for it.
+    if data["portrait_variant"] == "night_clear":
+        draw_dynamic_moon(image, data["almanac"])
+    return image
 
 
 def weather_kind(condition: str) -> str:
