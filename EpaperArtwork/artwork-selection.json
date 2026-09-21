@@ -24,11 +24,11 @@
     "dusk_rain": {"path": "assets/house/dusk-rain-hand-ink-v1.png", "status": "awaiting_review"},
     "dusk_fog": {"path": "assets/house/dusk-fog-hand-ink-v1.png", "status": "awaiting_review"},
     "dusk_snow": {"path": "assets/house/dusk-snow-hand-ink-v2.png", "status": "awaiting_review"},
-    "night_clear": {"path": "assets/house/night-clear-hand-ink-v1.png", "status": "awaiting_review"},
-    "night_cloudy": {"path": "assets/house/night-cloudy-hand-ink-v1.png", "status": "awaiting_review"},
-    "night_rain": {"path": "assets/house/night-rain-hand-ink-v1.png", "status": "awaiting_review"},
-    "night_fog": {"path": "assets/house/night-fog-hand-ink-v1.png", "status": "awaiting_review"},
-    "night_snow": {"path": "assets/house/night-snow-hand-ink-v1.png", "status": "awaiting_review"}
+    "night_clear": {"path": "assets/house/night-clear-hand-ink-v2.png", "status": "approved"},
+    "night_cloudy": {"path": "assets/house/night-cloudy-hand-ink-v2.png", "status": "approved"},
+    "night_rain": {"path": "assets/house/night-rain-hand-ink-v2.png", "status": "approved"},
+    "night_fog": {"path": "assets/house/night-fog-hand-ink-v2.png", "status": "approved"},
+    "night_snow": {"path": "assets/house/night-snow-hand-ink-v2.png", "status": "approved"}
   },
   "special_editions": {
     "christmas": {"path": "assets/house/special-christmas-hand-ink-v1.png", "status": "approved", "enabled": true},
