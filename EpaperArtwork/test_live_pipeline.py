@@ -63,6 +63,7 @@ class WeatherTests(unittest.TestCase):
         with patch("live_data.astronomy", return_value=(almanac, solar)):
             data = build_live_data(snapshot, now)
         self.assertEqual(data["portrait_variant"], "day_rain")
+        self.assertEqual(data["foreground_slot"], "2026-09-20-2")
         self.assertEqual(data["forecast"]["high_c"], "9")
         self.assertIsNone(data["map_live"]["rain_next_hour_percent"])
 

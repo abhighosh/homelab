@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from screen_mode import PAGES, RANDOM_PAGES, ScreenMode
 from render_screens import (DARK, WEATHER_FONT, WEATHER_GLYPHS, WHITE,
                             draw_dynamic_moon, horizontal, sidereal_degrees,
-                            weather_kind)
+                            select_foreground_overlays, weather_kind)
 from map_imagery import map_bbox, mercator
 from fetch_road_map import inverse_mercator
 from PIL import Image, ImageFont
@@ -83,6 +83,34 @@ class WeatherIconTests(unittest.TestCase):
     def test_font_contains_each_weather_glyph(self) -> None:
         face = ImageFont.truetype(WEATHER_FONT, 64)
         self.assertTrue(all(face.getmask(glyph).getbbox() for glyph in WEATHER_GLYPHS.values()))
+
+
+class ForegroundOverlayTests(unittest.TestCase):
+    def test_choice_is_stable_within_a_slot(self) -> None:
+        data = {"date": "2026-10-18", "portrait_variant": "day_clear",
+                "foreground_slot": "2026-10-18-2"}
+        self.assertEqual(select_foreground_overlays(data), select_foreground_overlays(data))
+
+    def test_special_editions_are_not_modified(self) -> None:
+        data = {"date": "2026-12-25", "portrait_variant": "christmas",
+                "foreground_slot": "2026-12-25-1"}
+        chosen = select_foreground_overlays(data)
+        self.assertIsNone(chosen["weather"])
+        self.assertIsNone(chosen["visitor"])
+
+    def test_overlay_vocabulary_excludes_flowers(self) -> None:
+        visitors, weather = set(), set()
+        for day in range(1, 29):
+            for slot in range(4):
+                chosen = select_foreground_overlays({
+                    "date": f"2026-10-{day:02d}", "portrait_variant": "dusk_rain",
+                    "foreground_slot": f"2026-10-{day:02d}-{slot}",
+                })
+                visitors.add(chosen["visitor"])
+                weather.add(chosen["weather"])
+        self.assertTrue(visitors <= {None, "fox", "rabbit", "hedgehog", "cat", "gnome"})
+        self.assertTrue(weather <= {None, "puddles", "mud-tracks"})
+        self.assertIn("cat", visitors)
 
 
 class MapTests(unittest.TestCase):

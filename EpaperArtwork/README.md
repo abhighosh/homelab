@@ -54,6 +54,16 @@ The five selected night variants use a high-key moonlit treatment designed for t
 
 The selected dusk variants use the same e-paper-aware tonal strategy but remain one step brighter than night: pale architecture and foreground, mid-gray evening skies, light horizon bands and long shadows. Their final four-tone means range from 134 to 157, compared with 100 to 123 for the night set. This prevents dusk-to-night transitions from paradoxically becoming brighter.
 
+Normal portraits also receive a small, deterministic foreground detail layer.
+Rain can add puddles or muddy tracks, snow can add tracks, and autumn can add
+windblown leaves. At most one visitor is present: a fox, rabbit, hedgehog,
+pheasant or cat, with cats intentionally a little more common; a wandering
+garden gnome is a rare surprise. Flowers are deliberately excluded. Choices
+remain fixed for each six-hour block, so the half-hour weather refresh does not
+make an animal jump around, and all layers are rasterised on the NAS before the
+four-tone frame reaches the E1001. Date-specific special editions are kept
+exactly as composed and never receive these overlays.
+
 The supplied house photo has now been used to make `assets/house/day-clear-anchor-v1.png`, the **first review candidate**. Its display-sized four-tone preview is generated as `output/day-clear-anchor-v1-e1001.png` (ignored by Git). Approve the visual style and architectural fidelity before deriving weather variants; a different anchor style would otherwise multiply rework. The image is an illustration, not a pixel-accurate copy of the photo.
 
 The more hand-inked `assets/house/day-clear-hand-ink-v1.png` is now the **selected base**, with a display preview at `output/day-clear-hand-ink-v1-e1001.png`. The original anchor remains untouched. `artwork-selection.json` records the selection and review status. The built-in image-edit prompt asked for "a looser, visibly handmade ink sketch with varied-width pen strokes, selective cross-hatching, sparse pale-gray wash and less repetitive stone/gravel texture, while keeping the viewpoint, architecture, windows, trees and garden in the same positions; four-tone monochrome, no text or added objects."

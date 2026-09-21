@@ -142,6 +142,9 @@ def build_live_data(snapshot: dict, now: datetime | None = None) -> dict:
         "latitude": STATIC["latitude"], "longitude": STATIC["longitude"],
         "map": STATIC["map"],
         "portrait_variant": variant,
+        # Foreground visitors remain fixed across the half-hour weather polls,
+        # then receive a fresh deterministic choice at 00:00/06:00/12:00/18:00.
+        "foreground_slot": f"{now.date().isoformat()}-{now.hour // 6}",
         "forecast": {
             "condition": pretty,
             "high_c": rounded(day.get("temperature")),

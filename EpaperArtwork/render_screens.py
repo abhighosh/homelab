@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import random
 from collections import deque
 from datetime import date, datetime, time, timezone
 from functools import lru_cache
@@ -33,6 +35,21 @@ WEATHER_GLYPHS = {
     "snow": "\ue2cd",
     "fog": "\ue818",
     "storm": "\uebdb",
+}
+OVERLAY_DIR = ROOT / "assets" / "overlays"
+VISITOR_HEIGHTS = {
+    "fox": 44,
+    "rabbit": 52,
+    "hedgehog": 29,
+    "pheasant": 45,
+    "cat": 43,
+    "gnome": 48,
+}
+WEATHER_WIDTHS = {
+    "leaves": 185,
+    "puddles": 145,
+    "mud-tracks": 92,
+    "snow-tracks": 92,
 }
 
 
@@ -82,6 +99,106 @@ def draw_dynamic_moon(image: Image.Image, almanac: dict) -> None:
     draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=BLACK, width=1)
 
 
+def _stable_random(data: dict) -> random.Random:
+    """Return a reproducible RNG so routine refreshes do not move visitors."""
+    slot = data.get("foreground_slot", f"{data['date']}-{data['portrait_variant']}")
+    digest = hashlib.sha256(str(slot).encode("utf-8")).digest()
+    return random.Random(int.from_bytes(digest[:8], "big"))
+
+
+def select_foreground_overlays(data: dict) -> dict:
+    """Choose restrained seasonal details for a normal house portrait.
+
+    The result is stable for the supplied six-hour slot. Special editions are
+    already composed illustrations and deliberately receive no extra props.
+    """
+    variant = data["portrait_variant"]
+    if not variant.startswith(("dawn_", "day_", "dusk_", "night_")):
+        return {"weather": None, "visitor": None, "flip": False, "spot": 0}
+    daypart, condition = variant.split("_", 1)
+    current = date.fromisoformat(data["date"])
+    rng = _stable_random(data)
+
+    weather = None
+    roll = rng.random()
+    if condition == "rain":
+        weather = "puddles" if roll < 0.68 else "mud-tracks" if roll < 0.92 else None
+    elif condition == "snow":
+        weather = "snow-tracks" if roll < 0.78 else None
+    elif current.month in (9, 10, 11) and roll < 0.52:
+        weather = "leaves"
+
+    # The gnome is an intentionally rare surprise. Ordinary wildlife appears
+    # often enough to make the portrait feel alive without becoming a mascot.
+    visitor = None
+    visitor_roll = rng.random()
+    if visitor_roll < 0.01:
+        visitor = "gnome"
+    elif visitor_roll < 0.43:
+        pools = {
+            "dawn": ("rabbit", "pheasant", "cat", "cat"),
+            "day": ("rabbit", "pheasant", "cat", "cat"),
+            "dusk": ("fox", "hedgehog", "rabbit", "cat", "cat"),
+            "night": ("fox", "hedgehog", "cat", "cat"),
+        }
+        visitor = rng.choice(pools[daypart])
+    return {
+        "weather": weather,
+        "visitor": visitor,
+        "flip": rng.choice((False, True)),
+        "spot": rng.randrange(3),
+    }
+
+
+@lru_cache(maxsize=16)
+def _cropped_overlay(path: str) -> Image.Image:
+    with Image.open(path) as source:
+        image = source.convert("RGBA")
+    alpha = image.getchannel("A")
+    # Generated edges include a few nearly invisible pixels; ignoring them
+    # gives predictable scaling while retaining the antialiased ink edge.
+    bbox = alpha.point(lambda value: 255 if value >= 32 else 0).getbbox()
+    if bbox is None:
+        raise ValueError(f"Empty foreground overlay: {path}")
+    return image.crop(bbox)
+
+
+def _paste_overlay(image: Image.Image, path: Path, *, center_x: int, bottom: int,
+                   target_height: int | None = None, target_width: int | None = None,
+                   flip: bool = False) -> None:
+    overlay = _cropped_overlay(str(path)).copy()
+    if flip:
+        overlay = ImageOps.mirror(overlay)
+    if target_height is not None:
+        scale = target_height / overlay.height
+    elif target_width is not None:
+        scale = target_width / overlay.width
+    else:
+        raise ValueError("An overlay needs a target height or width")
+    size = (max(1, round(overlay.width * scale)), max(1, round(overlay.height * scale)))
+    overlay = overlay.resize(size, Image.Resampling.LANCZOS)
+    x, y = round(center_x - overlay.width / 2), bottom - overlay.height
+    image.paste(overlay.convert("L"), (x, y), overlay.getchannel("A"))
+
+
+def draw_foreground_overlays(image: Image.Image, data: dict) -> None:
+    selection = select_foreground_overlays(data)
+    weather = selection["weather"]
+    if weather:
+        weather_spots = ((590, 386), (660, 373), (520, 383))
+        x, bottom = weather_spots[selection["spot"]]
+        _paste_overlay(image, OVERLAY_DIR / f"weather-{weather}-v1.png",
+                       center_x=x, bottom=bottom, target_width=WEATHER_WIDTHS[weather],
+                       flip=selection["flip"])
+    visitor = selection["visitor"]
+    if visitor:
+        visitor_spots = ((608, 367), (696, 374), (535, 371))
+        x, bottom = visitor_spots[(selection["spot"] + 1) % len(visitor_spots)]
+        filename = "surprise-gnome-v1.png" if visitor == "gnome" else f"visitor-{visitor}-v1.png"
+        _paste_overlay(image, OVERLAY_DIR / filename, center_x=x, bottom=bottom,
+                       target_height=VISITOR_HEIGHTS[visitor], flip=selection["flip"])
+
+
 def portrait(data: dict) -> Image.Image:
     with Image.open(portrait_path(data)) as source:
         image = source.convert("L")
@@ -89,6 +206,7 @@ def portrait(data: dict) -> Image.Image:
     # clear-night base contains a deliberately empty patch of sky for it.
     if data["portrait_variant"] == "night_clear":
         draw_dynamic_moon(image, data["almanac"])
+    draw_foreground_overlays(image, data)
     return image
 
 
