@@ -96,6 +96,33 @@ def daypart(now: datetime, solar: dict) -> str:
     return "night"
 
 
+def next_artwork_change(now: datetime) -> datetime:
+    """Return the next time-driven render boundary in local time.
+
+    Weather is scheduled separately by the service. These boundaries cover
+    solar dayparts, the six-hour foreground slot, the date on Today/almanac,
+    and date-triggered special editions.
+    """
+    now = now.astimezone(ZONE)
+    _, solar = astronomy(now)
+    candidates = [
+        solar["dawn"],
+        solar["sunrise"] + timedelta(minutes=35),
+        solar["sunset"] - timedelta(minutes=35),
+        solar["dusk"],
+    ]
+    next_slot_hour = (now.hour // 6 + 1) * 6
+    if next_slot_hour < 24:
+        candidates.append(now.replace(hour=next_slot_hour, minute=0, second=0, microsecond=0))
+    else:
+        candidates.append((now + timedelta(days=1)).replace(
+            hour=0, minute=0, second=0, microsecond=0))
+    future = [candidate for candidate in candidates if candidate > now]
+    if not future:
+        raise ValueError("No future artwork boundary could be calculated")
+    return min(future)
+
+
 def _special(now: datetime, catalog: dict) -> str | None:
     for name, month_day in SPECIAL_DATES.items():
         entry = catalog["special_editions"].get(name, {})

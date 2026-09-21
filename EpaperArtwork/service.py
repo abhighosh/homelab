@@ -6,15 +6,16 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from frame_codec import FRAME_BYTES, pack_gray4
-from live_data import build_live_data
+from live_data import ZONE, build_live_data, next_artwork_change
 from open_meteo import fetch
 from render_screens import ROOT, render_pages
 
@@ -24,8 +25,12 @@ PAGES = ("portrait", "today", "map", "almanac", "constellations")
 OUTPUT = ROOT / "output"
 SNAPSHOT = OUTPUT / "live-weather.json"
 PORT = int(os.environ.get("E1001_PORT", "8765"))
+WEATHER_INTERVAL = timedelta(minutes=30)
+FAILURE_RETRY = timedelta(minutes=5)
+DISPLAY_GRACE_SECONDS = 30
 state_lock = threading.Lock()
-state: dict = {"pages": {}, "rendered_at": None, "last_error": None}
+state: dict = {"pages": {}, "rendered_at": None, "last_error": None,
+               "next_update_at": None}
 
 
 def atomic_write(path: Path, payload: bytes) -> None:
@@ -57,16 +62,46 @@ def render(snapshot: dict) -> None:
 
 
 def worker() -> None:
+    snapshot = None
+    next_weather_at = datetime.now(ZONE)
     while True:
+        now = datetime.now(ZONE)
         try:
-            snapshot = fetch()
-            atomic_write(SNAPSHOT, json.dumps(snapshot, separators=(",", ":")).encode())
+            if snapshot is None or now >= next_weather_at:
+                snapshot = fetch()
+                atomic_write(SNAPSHOT, json.dumps(snapshot, separators=(",", ":")).encode())
+                next_weather_at = datetime.now(ZONE) + WEATHER_INTERVAL
             render(snapshot)
         except Exception as exc:  # keep last good frames during API/network trouble
             LOG.exception("Weather/render failed; retaining last good frames")
             with state_lock:
                 state["last_error"] = str(exc)
-        threading.Event().wait(30 * 60)
+            if now >= next_weather_at:
+                next_weather_at = datetime.now(ZONE) + FAILURE_RETRY
+        now = datetime.now(ZONE)
+        try:
+            next_boundary = next_artwork_change(now)
+        except Exception:
+            LOG.exception("Could not calculate next artwork boundary; using weather schedule")
+            next_boundary = next_weather_at
+        deadline = min(next_weather_at, next_boundary)
+        with state_lock:
+            state["next_update_at"] = deadline
+        # Wake just after the boundary, avoiding a millisecond-early render
+        # which could otherwise select the outgoing daypart again.
+        wait_seconds = max(1.0, (deadline - datetime.now(ZONE)).total_seconds() + 1.0)
+        LOG.info("Next render at %s (%d seconds)", deadline.isoformat(), round(wait_seconds))
+        threading.Event().wait(wait_seconds)
+
+
+def next_check_seconds(deadline: datetime | None, now: datetime | None = None) -> int:
+    """Tell the display when to check after the next planned server render."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    if deadline is None:
+        return int(WEATHER_INTERVAL.total_seconds())
+    delay = math.ceil((deadline.astimezone(timezone.utc) - now.astimezone(timezone.utc)).total_seconds())
+    return max(30, min(int(WEATHER_INTERVAL.total_seconds()), delay + DISPLAY_GRACE_SECONDS))
 
 
 def restore_cached_frames() -> None:
@@ -104,18 +139,23 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/health":
             with state_lock:
+                next_update_at = state["next_update_at"]
                 payload = json.dumps({
                     "ready": len(state["pages"]) == len(PAGES),
                     "rendered_at": state["rendered_at"],
                     "last_error": state["last_error"],
+                    "next_update_at": next_update_at.isoformat() if next_update_at else None,
                     "pages": list(state["pages"]),
                 }).encode()
             self.send_bytes(200, payload, "application/json")
             return
         if path == "/manifest":
             with state_lock:
-                payload = json.dumps({name: entry["etag"] for name, entry in state["pages"].items()}).encode()
-            self.send_bytes(200 if payload != b"{}" else 503, payload, "application/json")
+                manifest = {name: entry["etag"] for name, entry in state["pages"].items()}
+                if manifest:
+                    manifest["next_check_seconds"] = next_check_seconds(state["next_update_at"])
+                payload = json.dumps(manifest).encode()
+            self.send_bytes(200 if manifest else 503, payload, "application/json")
             return
         parts = path.strip("/").split("/")
         if len(parts) == 2 and parts[0] in {"frame", "preview"}:

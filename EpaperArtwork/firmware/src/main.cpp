@@ -21,7 +21,10 @@ constexpr size_t kFrameBytes = kWidth * kHeight / 2;
 constexpr uint8_t kGreen = 3;
 constexpr uint8_t kRight = 4;
 constexpr uint8_t kLeft = 5;
-constexpr uint32_t kPollMs = 30UL * 60UL * 1000UL;
+constexpr uint32_t kFallbackPollMs = 30UL * 60UL * 1000UL;
+constexpr uint32_t kFailurePollMs = 5UL * 60UL * 1000UL;
+constexpr uint32_t kMinPollSeconds = 30;
+constexpr uint32_t kMaxPollSeconds = 30UL * 60UL;
 constexpr uint32_t kSurpriseMs = 60UL * 60UL * 1000UL;
 const char *kPages[] = {"portrait", "today", "map", "almanac", "constellations"};
 constexpr uint8_t kSurprise = 5;
@@ -35,6 +38,7 @@ uint8_t mode = 0;
 uint8_t shown = 0;
 uint8_t *frame = nullptr;
 uint32_t lastPoll = 0;
+uint32_t nextPollMs = kFallbackPollMs;
 uint32_t lastSurprise = 0;
 uint32_t lastButton = 0;
 bool leftWasDown = false;
@@ -77,7 +81,7 @@ void configureNetwork() {
                 WiFi.localIP().toString().c_str(), serverUrl.c_str());
 }
 
-bool fetchManifestHash(uint8_t page, String &hash) {
+bool fetchManifestHash(uint8_t page, String &hash, uint32_t &suggestedPollMs) {
   if (WiFi.status() != WL_CONNECTED) return false;
   HTTPClient http;
   http.setTimeout(10000);
@@ -86,8 +90,12 @@ bool fetchManifestHash(uint8_t page, String &hash) {
   if (code != HTTP_CODE_OK) { http.end(); return false; }
   JsonDocument document;
   DeserializationError error = deserializeJson(document, http.getStream());
-  if (!error && document[kPages[page]].is<const char *>())
+  if (!error && document[kPages[page]].is<const char *>()) {
     hash = document[kPages[page]].as<String>();
+    uint32_t seconds = document["next_check_seconds"] | (kFallbackPollMs / 1000UL);
+    seconds = constrain(seconds, kMinPollSeconds, kMaxPollSeconds);
+    suggestedPollMs = seconds * 1000UL;
+  }
   http.end();
   return !error && hash.length() == 16;
 }
@@ -118,9 +126,21 @@ bool fetchAndDisplay(uint8_t page, const String &hash) {
 }
 
 void refresh(bool force = false) {
-  if (!frame || WiFi.status() != WL_CONNECTED) return;
+  if (!frame) return;
+  if (WiFi.status() != WL_CONNECTED) {
+    nextPollMs = kFailurePollMs;
+    lastPoll = millis();
+    return;
+  }
   String remoteHash;
-  if (!fetchManifestHash(shown, remoteHash)) return;
+  uint32_t suggestedPollMs = kFallbackPollMs;
+  if (!fetchManifestHash(shown, remoteHash, suggestedPollMs)) {
+    nextPollMs = kFailurePollMs;
+    lastPoll = millis();
+    return;
+  }
+  nextPollMs = suggestedPollMs;
+  lastPoll = millis();
   if (force || shownHash != remoteHash) fetchAndDisplay(shown, remoteHash);
 }
 
@@ -205,8 +225,7 @@ void loop() {
   rightWasDown = rightDown;
   greenWasDown = greenDown;
   if (mode == kSurprise && millis() - lastSurprise >= kSurpriseMs) reroll();
-  if (millis() - lastPoll >= kPollMs) {
-    lastPoll = millis();
+  if (millis() - lastPoll >= nextPollMs) {
     refresh();
   }
   delay(75);

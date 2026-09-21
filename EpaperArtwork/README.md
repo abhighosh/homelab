@@ -6,6 +6,14 @@ data locally with Astral, and serves five four-grey frames. Home Assistant and
 the Pi are **not** in the data path. The E1001 has been flashed and all five
 pages, buttons and Surprise mode have been tested on the physical display.
 
+Rendering is event-aware as well as weather-aware. The NAS schedules exact
+local boundaries for civil dawn, sunrise +35 minutes, sunset -35 minutes,
+civil dusk, midnight and each six-hour foreground slot. The manifest tells the
+E1001 how long to wait, so it checks roughly 30 seconds after the next planned
+render instead of relying on two unrelated half-hour timers. Weather still
+refreshes every 30 minutes, failures retry after five minutes, and unchanged
+frame hashes never trigger an e-paper redraw.
+
 **Review set complete:** 20 normal portraits (five visual weather groups × four dayparts) plus six date-triggered special editions. See `output/weather-time-contact-sheet.png` and `output/special-editions-contact-sheet.png`; run `python3 EpaperArtwork/build_previews.py` and `python3 EpaperArtwork/make_contact_sheet.py` to recreate them. Every selected preview is checked at 800×480 with exactly four gray levels. Individual images are listed in `artwork-selection.json`; normal portraits other than clear-day and rain-day v6 still await review.
 
 The E1001's six planned screen modes are:

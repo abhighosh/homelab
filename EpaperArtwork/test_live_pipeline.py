@@ -3,19 +3,40 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from PIL import Image
 
 from frame_codec import FRAME_BYTES, pack_gray4
-from live_data import ROOT, _special, build_live_data
+from live_data import ROOT, _special, build_live_data, next_artwork_change
 from open_meteo import adapt, condition
 from render_screens import SIZE
+from service import next_check_seconds
 
 
 class WeatherTests(unittest.TestCase):
+    def test_next_artwork_change_uses_real_solar_boundaries(self):
+        now = datetime(2026, 9, 20, 6, 5, tzinfo=ZoneInfo("Europe/London"))
+        solar = {
+            "dawn": now.replace(hour=6, minute=12),
+            "sunrise": now.replace(hour=6, minute=48),
+            "sunset": now.replace(hour=19, minute=2),
+            "dusk": now.replace(hour=19, minute=38),
+        }
+        with patch("live_data.astronomy", return_value=({}, solar)):
+            self.assertEqual(next_artwork_change(now), solar["dawn"])
+
+        after_dawn = now.replace(hour=6, minute=20)
+        with patch("live_data.astronomy", return_value=({}, solar)):
+            self.assertEqual(next_artwork_change(after_dawn), solar["sunrise"] + timedelta(minutes=35))
+
+    def test_display_check_is_shortly_after_server_deadline(self):
+        now = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+        self.assertEqual(next_check_seconds(now + timedelta(minutes=7), now), 450)
+        self.assertEqual(next_check_seconds(now + timedelta(hours=2), now), 1800)
+
     def test_special_editions_are_scheduled_only_on_their_dates(self):
         import json
 
