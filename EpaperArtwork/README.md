@@ -39,6 +39,7 @@ python3 -m venv /tmp/epaper-osm-venv
 /tmp/epaper-osm-venv/bin/python EpaperArtwork/fetch_vector_map.py --data EpaperArtwork/example-screen-data.json
 python3 EpaperArtwork/render_screens.py --data EpaperArtwork/example-screen-data.json
 python3 EpaperArtwork/make_contact_sheet.py
+python3 EpaperArtwork/make_overlay_contact_sheet.py
 python3 -m unittest discover -s EpaperArtwork -p 'test_*.py'
 ```
 
