@@ -666,7 +666,7 @@ def almanac(data: dict) -> Image.Image:
     for divider in (271, 529):
         draw.line((divider, 92, divider, 413), fill=LIGHT, width=2)
 
-    sun_x, moon_x, weather_x = centers
+    weather_x, sun_x, moon_x = centers
     icon_y = 166
     draw.ellipse((sun_x - 46, icon_y - 46, sun_x + 46, icon_y + 46), outline=BLACK, width=3)
     for degrees in range(0, 360, 30):
@@ -675,10 +675,10 @@ def almanac(data: dict) -> Image.Image:
         draw.line((sun_x + a * math.cos(angle), icon_y + a * math.sin(angle),
                    sun_x + b * math.cos(angle), icon_y + b * math.sin(angle)), fill=BLACK, width=2)
     centered(draw, (sun_x, 256), "SUN", font(SERIF_BOLD, 26))
-    draw.text((55, 292), "Rise", font=font(SANS_BOLD, 21), fill=BLACK)
-    draw.text((247, 292), "Set", font=font(SANS_BOLD, 21), fill=BLACK, anchor="ra")
-    draw.text((55, 326), sky["sunrise"], font=font(SERIF_BOLD, 30), fill=BLACK)
-    draw.text((247, 326), sky["sunset"], font=font(SERIF_BOLD, 30), fill=BLACK, anchor="ra")
+    draw.text((sun_x - 88, 292), "Rise", font=font(SANS_BOLD, 21), fill=BLACK)
+    draw.text((sun_x + 104, 292), "Set", font=font(SANS_BOLD, 21), fill=BLACK, anchor="ra")
+    draw.text((sun_x - 88, 326), sky["sunrise"], font=font(SERIF_BOLD, 30), fill=BLACK)
+    draw.text((sun_x + 104, 326), sky["sunset"], font=font(SERIF_BOLD, 30), fill=BLACK, anchor="ra")
     daylight = parse_hm(sky["sunset"]) - parse_hm(sky["sunrise"])
     centered(draw, (sun_x, 388), f"{daylight // 60}h {daylight % 60:02d}m daylight", font(SANS_BOLD, 22), BLACK)
 
