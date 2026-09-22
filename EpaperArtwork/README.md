@@ -22,7 +22,7 @@ The E1001's six planned screen modes are:
 2. **Today** — the same portrait with a restrained date and daily forecast.
 3. **Map** — a wide monochrome road-line view centred on Launton village, also showing Oxford and Abingdon. Scale and attribution overlay the map rather than occupying a footer.
 4. **Sky almanac** — three matching weather, sun and moon columns, with forecast icon, daily temperatures, sunrise/sunset and moon phase rendered from data.
-5. **Constellations** — a full-width altitude/azimuth sky atlas with real Western constellation lines and bright stars projected above Oxfordshire at 21:00 local time for the small stated date reference. Labels sit by their figures; N appears at both edges because the horizon wraps around.
+5. **Constellations** — a full-width altitude/azimuth sky atlas with real Western constellation lines and bright stars projected above Oxfordshire at 21:00 local time for the stated date reference. Enlarged bold labels sit by their figures; N appears at both edges because the horizon wraps around.
 6. **Surprise me** — a mode that chooses among the other five screens; it is not a sixth image. Green-button presses reroll while this mode is selected, and an hourly timer may reroll while the mode remains selected. Consecutive repeats are excluded.
 
 The left/right white buttons move between modes; the green button returns to the portrait except on Surprise me, where it rerolls. The device downloads a packed Gray4 frame over LAN; previews are available as PNGs. Seeed_GFX is used instead of ESPHome's monochrome display path to preserve four greys. Password-protected Arduino OTA was configured in the first-run Wi-Fi portal; the initial USB flash is complete.

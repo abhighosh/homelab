@@ -796,18 +796,18 @@ def constellations(data: dict) -> Image.Image:
         x = round(sum(p[0] for p in visible) / len(visible))
         bottom = max(p[1] for p in visible)
         name = group["name"].upper()
-        face = font(SERIF_BOLD, 17)
+        face = font(SERIF_BOLD, 20)
         tracking = 2
         label_width = sum(draw.textlength(character, font=face) for character in name) + tracking * (len(name) - 1)
         for dx, dy in ((0, 0), (55, 0), (-55, 0), (0, 30), (55, 30), (-55, 30)):
             label_x, label_y = x + dx, bottom + 24 + dy
             text_box = draw.textbbox((label_x, label_y), name, font=face, anchor="mm")
-            box = (round(label_x - label_width / 2) - 10, text_box[1] - 6,
-                   round(label_x + label_width / 2) + 10, text_box[3] + 6)
+            box = (round(label_x - label_width / 2) - 4, text_box[1] - 4,
+                   round(label_x + label_width / 2) + 4, text_box[3] + 4)
             if box[0] < 8 or box[2] > 792 or box[1] < 8 or box[3] > 414:
                 continue
-            if any(not (box[2] + 7 < old[0] or box[0] - 7 > old[2] or
-                        box[3] + 7 < old[1] or box[1] - 7 > old[3]) for old in occupied):
+            if any(not (box[2] + 3 < old[0] or box[0] - 3 > old[2] or
+                        box[3] + 3 < old[1] or box[1] - 3 > old[3]) for old in occupied):
                 continue
             occupied.append(box)
             draw.line((label_x, box[1], x, bottom), fill=DARK, width=2)
@@ -821,9 +821,9 @@ def constellations(data: dict) -> Image.Image:
     draw.line((10, 430, 790, 430), fill=DARK, width=1)
     for label, az in (("N", 0), ("E", 90), ("S", 180), ("W", 270), ("N", 360)):
         x, _ = project(0, az)
-        centered(draw, (x, 449), label, font(SANS_BOLD, 18), WHITE)
+        centered(draw, (x, 449), label, font(SANS_BOLD, 20), WHITE)
     draw.text((14, 10), f"OXFORDSHIRE · {current.strftime('%d %b %Y').upper()} · 21:00 LOCAL",
-              font=font(SANS, 12), fill=LIGHT)
+              font=font(SANS_BOLD, 14), fill=WHITE)
     return image
 
 
