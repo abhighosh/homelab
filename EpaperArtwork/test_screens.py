@@ -7,12 +7,13 @@ import unittest
 from datetime import datetime, timezone
 
 from screen_mode import PAGES, RANDOM_PAGES, ScreenMode
+from daily_artwork import suitability
 from render_screens import (BLACK, DARK, WEATHER_FONT, WEATHER_GLYPHS, WHITE, artwork, four_tone,
                             draw_dynamic_moon, horizontal, sidereal_degrees,
                             select_foreground_overlays, weather_kind)
 from map_imagery import map_bbox, mercator
 from fetch_road_map import inverse_mercator
-from PIL import Image, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 
 class ScreenModeTests(unittest.TestCase):
@@ -86,6 +87,22 @@ class WeatherIconTests(unittest.TestCase):
 
 
 class ArtworkPageTests(unittest.TestCase):
+    def test_selection_rejects_portrait_and_dense_sources(self) -> None:
+        portrait = Image.new("L", (700, 1000), WHITE)
+        self.assertFalse(suitability(portrait)[0])
+
+        dense = Image.new("L", (1200, 650), WHITE)
+        dense_draw = ImageDraw.Draw(dense)
+        for x in range(0, 1200, 5):
+            dense_draw.line((x, 0, x, 649), fill=BLACK, width=2)
+        self.assertFalse(suitability(dense)[0])
+
+        simple = Image.new("L", (1200, 650), WHITE)
+        simple_draw = ImageDraw.Draw(simple)
+        simple_draw.rectangle((80, 180, 1120, 570), fill=170, outline=BLACK, width=8)
+        simple_draw.ellipse((440, 70, 760, 390), fill=WHITE, outline=BLACK, width=8)
+        self.assertTrue(suitability(simple)[0])
+
     def test_artwork_is_display_sized_and_four_tone(self) -> None:
         image = four_tone(artwork({"artwork": {
             "image_path": "assets/house/day-clear-hand-ink-v1.png",

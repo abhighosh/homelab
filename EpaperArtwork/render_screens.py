@@ -283,11 +283,11 @@ def artwork(data: dict) -> Image.Image:
         source = ImageOps.exif_transpose(source).convert("L")
         source = ImageOps.autocontrast(source, cutoff=1)
         source = ImageEnhance.Contrast(source).enhance(1.08)
-        source.thumbnail((770, 390), Image.Resampling.LANCZOS)
+        source = ImageOps.fit(source, (780, 390), Image.Resampling.LANCZOS,
+                              centering=(0.5, 0.5))
 
     image = Image.new("L", SIZE, WHITE)
-    x = (SIZE[0] - source.width) // 2
-    y = max(7, (398 - source.height) // 2)
+    x, y = 10, 7
     image.paste(source, (x, y))
     # Dither the photographic/printed source as part of a full-size canvas;
     # the shared quantizer deliberately validates the physical panel size.

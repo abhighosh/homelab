@@ -63,7 +63,8 @@ def render(snapshot: dict) -> None:
         state.update(
             pages=pages,
             artwork={key: artwork_record.get(key) for key in
-                     ("selected_for", "stale_for", "object_id", "title", "artist", "object_url")
+                     ("selected_for", "stale_for", "object_id", "title", "artist",
+                      "object_url", "display_quality")
                      if artwork_record.get(key) is not None},
             rendered_at=datetime.now(timezone.utc).isoformat(),
             last_error=None,
