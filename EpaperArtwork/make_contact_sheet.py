@@ -54,7 +54,7 @@ def main() -> None:
     special.save(special_target, optimize=True)
     print(special_target)
 
-    screen_names = ("portrait", "today", "map", "almanac", "constellations")
+    screen_names = ("portrait", "today", "artwork", "almanac", "constellations")
     if all((ROOT / "output" / f"screen-{name}.png").is_file() for name in screen_names):
         screen_sheet = Image.new("RGB", (CELL[0] * 2, CELL[1] * 3), "white")
         screen_draw = ImageDraw.Draw(screen_sheet)

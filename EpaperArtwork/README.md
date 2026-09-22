@@ -1,8 +1,9 @@
 # reTerminal E1001 living artwork
 
 The renderer is now deployed on `ubuntu-nas` at `http://192.168.0.10:8765`. It
-fetches weather directly from Open-Meteo every 30 minutes, computes sun and moon
-data locally with Astral, and serves five four-grey frames. Home Assistant and
+fetches weather directly from Open-Meteo every 30 minutes, selects and caches a
+daily public-domain artwork from The Met, computes sun and moon data locally
+with Astral, and serves five four-grey frames. Home Assistant and
 the Pi are **not** in the data path. The E1001 has been flashed and all five
 pages, buttons and Surprise mode have been tested on the physical display.
 
@@ -20,7 +21,7 @@ The E1001's six planned screen modes are:
 
 1. **Living portrait** — the house, no interface chrome.
 2. **Today** — the same portrait with a restrained date and daily forecast.
-3. **Map** — a wide monochrome road-line view centred on Launton village, also showing Oxford and Abingdon. Scale and attribution overlay the map rather than occupying a footer.
+3. **Artwork of the day** — a public-domain drawing, print or woodblock selected from The Metropolitan Museum of Art, prepared for four-grey e-paper and accompanied by a minimal title/artist caption.
 4. **Sky almanac** — three matching weather, sun and moon columns, with forecast icon, daily temperatures, sunrise/sunset and moon phase rendered from data.
 5. **Constellations** — a full-width altitude/azimuth sky atlas with real Western constellation lines and bright stars projected above Oxfordshire at 21:00 local time for the stated date reference. Enlarged bold labels dynamically consider positions above, below and beside each visible figure, preferring above in the upper sky; a scored layout avoids constellation ink and other labels. There are deliberately no leader lines because they can be mistaken for part of a constellation on four-tone e-paper. N appears at both edges because the horizon wraps around.
 6. **Surprise me** — a mode that chooses among the other five screens; it is not a sixth image. Green-button presses reroll while this mode is selected, and an hourly timer may reroll while the mode remains selected. Consecutive repeats are excluded.
@@ -59,11 +60,11 @@ dawn/dusk. Its Material Symbols weather glyph is rendered in black using the
 font's lighter variable weight so it matches the line weight of the geometric
 sun and moon more closely.
 
-The selected wide map uses real [OpenStreetMap](https://www.openstreetmap.org/copyright) road, rail and waterway geometry from one-time cached [Geofabrik county extracts](https://download.geofabrik.de/europe/united-kingdom/england.html), centred on the public [Launton village centre](https://mapcarta.com/17635298). `fetch_vector_map.py` builds a compact road-network JSON in Git-ignored `output/`; the renderer draws its paths directly at the E1001's 800×480 resolution, so fine roads do not break up during raster-tile colour extraction or downsampling. It overlays restrained place labels, scale and attribution. Rendering and the future device need no network access. The renderer rejects a cached map whose centre or width differs from `example-screen-data.json`. The earlier raster-tile and satellite map previews remain optional legacy review material. Do **not** put a precise home coordinate into this public repository.
+The artwork selector uses The Met's current paginated `/v1.1/search` API and validates every chosen object as public domain before downloading it. It favours the Drawings and Prints collection, with a smaller selection of Asian woodblock prints, because line-led works survive the panel much better than arbitrary colour paintings. Selection is deterministic for the local date. Both the original JPEG and metadata are cached under Git-ignored `output/daily-artwork/`; an API or network failure retains the latest successful work while weather and astronomy screens continue normally. The image is contrast-adjusted, dithered into the panel's four physical tones and rendered with a narrow, uncluttered caption. `/health` exposes the selected object metadata for diagnostics.
 
-The map also accepts a `map_live` input with wind bearing/speed, next-hour rain probability, and a timezone-aware update timestamp. Its wind arrow shows the direction the air travels while the text names the direction it comes **from**. Missing wind or rain fields are labelled unavailable. The example values are explicitly marked **SAMPLE** on the image; the deployed adapter uses a fresh Open-Meteo hourly forecast and never copies sample values into live screens.
+The former map renderer and its source-data utilities remain as inactive legacy code for reproducibility, but Map is no longer a served page or a Surprise choice. During the firmware transition, `/frame/map.g4` is a compatibility alias for the artwork frame so an older device cannot become stuck on a removed endpoint.
 
-The old county-outline, satellite, raster-tile and detailed Overpass renderers remain available as legacy review code, but the selected Launton map requires its cached vector extract and will fail clearly if it is missing. No invented roads or rivers are shown.
+The old county-outline, satellite, raster-tile and detailed Overpass renderers remain available as legacy review code. They are not imported into the active page set and their large generated caches remain outside Git.
 
 The sky chart uses a compact bright-star subset of the [HYG Database](https://github.com/astronexus/HYG-Database/tree/main/hyg/CURRENT) and Western constellation line definitions from [Stellarium Sky Cultures](https://github.com/Stellarium/stellarium-skycultures/tree/master/western). HYG is CC BY-SA 4.0; Stellarium labels its Western text/data CC BY-SA without a version in its description. The derived catalog in `assets/sky/western-bright-stars.json` retains attribution. Star positions are projected for Oxfordshire using an approximate [USNO sidereal-time formula](https://aa.usno.navy.mil/faq/GAST). This is a chart of objects above the geometric horizon, **not** a cloud or local-obstruction forecast. The displayed time and date are explicit, so an older cached chart cannot masquerade as the current sky. `import_sky_data.py` can rebuild the compact catalog from the upstream HYG v4.0 CSV and Stellarium Western index.
 
@@ -127,6 +128,6 @@ The house-anchor prompt used the built-in image-generation edit tool with the up
 - Special editions are enabled in `artwork-selection.json` and appear automatically on their dates: New Year (1 January), Halloween (31 October), Bonfire Night (5 November), Abhi's birthday (16 November), Sarah-Jane's birthday (19 December) and Christmas (25 December).
 - The USB-powered firmware keeps Wi-Fi and OTA available, uses DTIM-aware Wi-Fi modem sleep, polls buttons every 75 ms and avoids redrawing an unchanged image after reboot. It does **not** enter deep sleep, which would change button and OTA availability; a future battery configuration would need a separate wake strategy.
 
-To inspect the live service: `curl http://192.168.0.10:8765/health`. A browser can open `http://192.168.0.10:8765/preview/map.png` and corresponding page previews.
+To inspect the live service: `curl http://192.168.0.10:8765/health`. A browser can open `http://192.168.0.10:8765/preview/artwork.png` and corresponding page previews.
 
-Map-border concept generated with OpenAI image generation from this prompt: "Landscape 800x480 four-greyscale e-paper antique hand-engraved fantasy-cartography visual language; empty decorative map base with generous white center for real geographic data; fine ornamental border, compass rose, sparse hills, no text or place names, black/dark gray/light gray/white only, crisp stippling and hatching." It is intentionally not a geographic map.
+The retired map-border concept was generated with OpenAI image generation from this prompt: "Landscape 800x480 four-greyscale e-paper antique hand-engraved fantasy-cartography visual language; empty decorative map base with generous white center for real geographic data; fine ornamental border, compass rose, sparse hills, no text or place names, black/dark gray/light gray/white only, crisp stippling and hatching." It remains only as legacy design history.

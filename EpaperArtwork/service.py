@@ -15,13 +15,14 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from frame_codec import FRAME_BYTES, pack_gray4
+from daily_artwork import daily_artwork
 from live_data import ZONE, build_live_data, next_artwork_change
 from open_meteo import fetch
 from render_screens import ROOT, render_pages
 
 
 LOG = logging.getLogger("e1001")
-PAGES = ("portrait", "today", "map", "almanac", "constellations")
+PAGES = ("portrait", "today", "artwork", "almanac", "constellations")
 OUTPUT = ROOT / "output"
 SNAPSHOT = OUTPUT / "live-weather.json"
 PORT = int(os.environ.get("E1001_PORT", "8765"))
@@ -29,7 +30,7 @@ WEATHER_INTERVAL = timedelta(minutes=30)
 FAILURE_RETRY = timedelta(minutes=5)
 DISPLAY_GRACE_SECONDS = 30
 state_lock = threading.Lock()
-state: dict = {"pages": {}, "rendered_at": None, "last_error": None,
+state: dict = {"pages": {}, "artwork": None, "rendered_at": None, "last_error": None,
                "next_update_at": None}
 
 
@@ -41,6 +42,8 @@ def atomic_write(path: Path, payload: bytes) -> None:
 
 def render(snapshot: dict) -> None:
     data = build_live_data(snapshot)
+    artwork_record = daily_artwork(datetime.now(ZONE).date())
+    data["artwork"] = artwork_record
     images = render_pages(data)
     pages = {}
     for name, image in images.items():
@@ -57,7 +60,14 @@ def render(snapshot: dict) -> None:
         atomic_write(OUTPUT / f"live-{name}.g4", entry["g4"])
         atomic_write(OUTPUT / f"live-{name}.png", entry["png"])
     with state_lock:
-        state.update(pages=pages, rendered_at=datetime.now(timezone.utc).isoformat(), last_error=None)
+        state.update(
+            pages=pages,
+            artwork={key: artwork_record.get(key) for key in
+                     ("selected_for", "stale_for", "object_id", "title", "artist", "object_url")
+                     if artwork_record.get(key) is not None},
+            rendered_at=datetime.now(timezone.utc).isoformat(),
+            last_error=None,
+        )
     LOG.info("Rendered %d pages from fresh Open-Meteo weather", len(pages))
 
 
@@ -146,12 +156,17 @@ class Handler(BaseHTTPRequestHandler):
                     "last_error": state["last_error"],
                     "next_update_at": next_update_at.isoformat() if next_update_at else None,
                     "pages": list(state["pages"]),
+                    "artwork": state["artwork"],
                 }).encode()
             self.send_bytes(200, payload, "application/json")
             return
         if path == "/manifest":
             with state_lock:
                 manifest = {name: entry["etag"] for name, entry in state["pages"].items()}
+                # One-release compatibility for devices still running the old
+                # firmware: its former Map slot receives the new artwork.
+                if "artwork" in manifest:
+                    manifest["map"] = manifest["artwork"]
                 if manifest:
                     manifest["next_check_seconds"] = next_check_seconds(state["next_update_at"])
                 payload = json.dumps(manifest).encode()
@@ -161,6 +176,8 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts) == 2 and parts[0] in {"frame", "preview"}:
             stem, _, extension = parts[1].rpartition(".")
             expected = "g4" if parts[0] == "frame" else "png"
+            if stem == "map":
+                stem = "artwork"
             if stem in PAGES and extension == expected:
                 with state_lock:
                     entry = state["pages"].get(stem)

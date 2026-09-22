@@ -4,6 +4,12 @@
   "latitude": 51.752,
   "longitude": -1.258,
   "portrait_variant": "day_clear",
+  "artwork": {
+    "image_path": "assets/house/day-clear-hand-ink-v1.png",
+    "title": "Sample artwork preview",
+    "artist": "Local preview",
+    "object_date": "2026"
+  },
   "map": {
     "source": "osm_lines",
     "latitude": 51.89769,

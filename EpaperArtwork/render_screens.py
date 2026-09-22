@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 from map_imagery import map_bbox, mercator
 from prepare_art import quantize_four_tone
@@ -258,6 +258,55 @@ def today(data: dict) -> Image.Image:
               stroke_width=6, stroke_fill=WHITE)
     draw.text((775, 68), weather_text, font=weather_face, fill=BLACK, anchor="rt",
               stroke_width=6, stroke_fill=WHITE)
+    return image
+
+
+def _fit_line(draw: ImageDraw.ImageDraw, text: str, face: ImageFont.FreeTypeFont,
+              width: int) -> str:
+    """Ellipsise metadata rather than allowing it to collide on the panel."""
+    text = " ".join(str(text).split())
+    if draw.textlength(text, font=face) <= width:
+        return text
+    suffix = "…"
+    while text and draw.textlength(text + suffix, font=face) > width:
+        text = text[:-1].rstrip()
+    return text + suffix
+
+
+def artwork(data: dict) -> Image.Image:
+    """Present a cached Met work as a restrained four-grey gallery page."""
+    record = data["artwork"]
+    source_path = Path(record["image_path"])
+    if not source_path.is_absolute():
+        source_path = ROOT / source_path
+    with Image.open(source_path) as source:
+        source = ImageOps.exif_transpose(source).convert("L")
+        source = ImageOps.autocontrast(source, cutoff=1)
+        source = ImageEnhance.Contrast(source).enhance(1.08)
+        source.thumbnail((770, 390), Image.Resampling.LANCZOS)
+
+    image = Image.new("L", SIZE, WHITE)
+    x = (SIZE[0] - source.width) // 2
+    y = max(7, (398 - source.height) // 2)
+    image.paste(source, (x, y))
+    # Dither the photographic/printed source as part of a full-size canvas;
+    # the shared quantizer deliberately validates the physical panel size.
+    image = quantize_four_tone(image)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((x - 1, y - 1, x + source.width, y + source.height), outline=DARK, width=1)
+    draw.line((18, 405, 782, 405), fill=LIGHT, width=1)
+
+    title_face = font(SERIF_BOLD, 24)
+    detail_face = font(SANS, 16)
+    source_face = font(SANS_BOLD, 12)
+    title = _fit_line(draw, record.get("title") or "UNTITLED", title_face, 750)
+    artist = record.get("artist") or "Unknown artist"
+    object_date = record.get("object_date") or ""
+    detail = artist + (f"  ·  {object_date}" if object_date else "")
+    detail = _fit_line(draw, detail, detail_face, 570)
+    draw.text((20, 414), title, font=title_face, fill=BLACK)
+    draw.text((21, 450), detail, font=detail_face, fill=DARK)
+    draw.text((780, 453), "THE MET · OPEN ACCESS", font=source_face, fill=DARK, anchor="ra")
     return image
 
 
@@ -894,8 +943,7 @@ def render_pages(data: dict) -> dict[str, Image.Image]:
     pages = {
         "portrait": portrait(data),
         "today": today(data),
-        "map": (regional_tile_map(data) if data["map"].get("source") == "osm_tiles" else
-                road_map(data) if data["map"].get("source") == "osm_lines" else satellite_map(data)),
+        "artwork": artwork(data),
         "almanac": almanac(data),
         "constellations": constellations(data),
     }

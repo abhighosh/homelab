@@ -140,9 +140,7 @@ def build_live_data(snapshot: dict, now: datetime | None = None) -> dict:
         raise ValueError("Home Assistant weather snapshot is stale or lacks a timezone")
     current = snapshot.get("current") or {}
     daily = forecast_list(snapshot.get("daily"))
-    hourly = forecast_list(snapshot.get("hourly"))
     day = daily[0] if daily else {}
-    hour = hourly[0] if hourly else {}
     condition = str(day.get("condition") or current.get("condition") or "unknown").replace("_", " ")
     pretty = condition.title() if condition != "unknown" else "Weather unavailable"
     rain_chance = number(day.get("precipitation_probability"))
@@ -167,7 +165,6 @@ def build_live_data(snapshot: dict, now: datetime | None = None) -> dict:
         "date": now.date().isoformat(),
         "location_label": "Oxfordshire",
         "latitude": STATIC["latitude"], "longitude": STATIC["longitude"],
-        "map": STATIC["map"],
         "portrait_variant": variant,
         # Foreground visitors remain fixed across the half-hour weather polls,
         # then receive a fresh deterministic choice at 00:00/06:00/12:00/18:00.
@@ -177,14 +174,6 @@ def build_live_data(snapshot: dict, now: datetime | None = None) -> dict:
             "high_c": rounded(day.get("temperature")),
             "low_c": rounded(day.get("templow")),
             "rain_chance_percent": rounded(rain_chance),
-        },
-        "map_live": {
-            "wind_bearing": number(current.get("wind_bearing")),
-            "wind_speed": number(current.get("wind_speed")),
-            "wind_unit": current.get("wind_unit") or "mph",
-            "rain_next_hour_percent": rounded(hour.get("precipitation_probability")) if
-                                      number(hour.get("precipitation_probability")) is not None else None,
-            "updated_at": generated.isoformat(),
         },
         "almanac": almanac,
     }

@@ -26,7 +26,7 @@ constexpr uint32_t kFailurePollMs = 5UL * 60UL * 1000UL;
 constexpr uint32_t kMinPollSeconds = 30;
 constexpr uint32_t kMaxPollSeconds = 30UL * 60UL;
 constexpr uint32_t kSurpriseMs = 60UL * 60UL * 1000UL;
-const char *kPages[] = {"portrait", "today", "map", "almanac", "constellations"};
+const char *kPages[] = {"portrait", "today", "artwork", "almanac", "constellations"};
 constexpr uint8_t kSurprise = 5;
 
 EPaper panel;

@@ -6,7 +6,7 @@ import random
 from dataclasses import dataclass, field
 
 
-PAGES = ("portrait", "today", "map", "almanac", "constellations", "surprise")
+PAGES = ("portrait", "today", "artwork", "almanac", "constellations", "surprise")
 RANDOM_PAGES = PAGES[:-1]
 
 

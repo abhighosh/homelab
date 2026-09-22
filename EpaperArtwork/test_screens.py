@@ -7,7 +7,7 @@ import unittest
 from datetime import datetime, timezone
 
 from screen_mode import PAGES, RANDOM_PAGES, ScreenMode
-from render_screens import (DARK, WEATHER_FONT, WEATHER_GLYPHS, WHITE,
+from render_screens import (BLACK, DARK, WEATHER_FONT, WEATHER_GLYPHS, WHITE, artwork, four_tone,
                             draw_dynamic_moon, horizontal, sidereal_degrees,
                             select_foreground_overlays, weather_kind)
 from map_imagery import map_bbox, mercator
@@ -34,9 +34,9 @@ class ScreenModeTests(unittest.TestCase):
         self.assertEqual(mode.hourly_tick(3500), second)
         third = mode.hourly_tick(3610)
         self.assertNotEqual(second, third)
-        mode.select("map", 3700)
-        self.assertEqual(mode.hourly_tick(8000), "map")
-        self.assertEqual(mode.page, "map")
+        mode.select("artwork", 3700)
+        self.assertEqual(mode.hourly_tick(8000), "artwork")
+        self.assertEqual(mode.page, "artwork")
 
     def test_all_pages_are_unique(self) -> None:
         self.assertEqual(len(PAGES), len(set(PAGES)))
@@ -83,6 +83,17 @@ class WeatherIconTests(unittest.TestCase):
     def test_font_contains_each_weather_glyph(self) -> None:
         face = ImageFont.truetype(WEATHER_FONT, 64)
         self.assertTrue(all(face.getmask(glyph).getbbox() for glyph in WEATHER_GLYPHS.values()))
+
+
+class ArtworkPageTests(unittest.TestCase):
+    def test_artwork_is_display_sized_and_four_tone(self) -> None:
+        image = four_tone(artwork({"artwork": {
+            "image_path": "assets/house/day-clear-hand-ink-v1.png",
+            "title": "A deliberately long sample title for the daily gallery view",
+            "artist": "Sample artist", "object_date": "nineteenth century",
+        }}))
+        self.assertEqual(image.size, (800, 480))
+        self.assertFalse(set(image.getdata()) - {BLACK, DARK, 170, WHITE})
 
 
 class ForegroundOverlayTests(unittest.TestCase):

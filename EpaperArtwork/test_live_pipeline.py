@@ -86,7 +86,8 @@ class WeatherTests(unittest.TestCase):
         self.assertEqual(data["portrait_variant"], "day_rain")
         self.assertEqual(data["foreground_slot"], "2026-09-20-2")
         self.assertEqual(data["forecast"]["high_c"], "9")
-        self.assertIsNone(data["map_live"]["rain_next_hour_percent"])
+        self.assertNotIn("map", data)
+        self.assertNotIn("map_live", data)
 
 
 class FrameTests(unittest.TestCase):
