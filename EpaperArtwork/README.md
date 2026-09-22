@@ -27,12 +27,12 @@ The E1001's six planned screen modes are:
 
 1. **Living portrait** — the house, no interface chrome.
 2. **Today** — the same portrait with a restrained date and daily forecast.
-3. **Artwork of the day** — a public-domain drawing, print or woodblock selected from The Metropolitan Museum of Art, prepared for four-grey e-paper and accompanied by a minimal title/artist caption.
+3. **Artwork of the day** — a public-domain drawing, print or woodblock selected from The Metropolitan Museum of Art, prepared for four-grey e-paper and accompanied by a minimal title/artist caption. Pressing the green button on this page requests another suitable work; the current image remains visible while the NAS prepares it.
 4. **Sky almanac** — three matching weather, sun and moon columns, with forecast icon, daily temperatures, sunrise/sunset and moon phase rendered from data.
 5. **Constellations** — a full-width altitude/azimuth sky atlas with real Western constellation lines and bright stars projected above Oxfordshire at 21:00 local time for the stated date reference. Enlarged bold labels dynamically consider positions above, below and beside each visible figure, preferring above in the upper sky; a scored layout avoids constellation ink and other labels. There are deliberately no leader lines because they can be mistaken for part of a constellation on four-tone e-paper. N appears at both edges because the horizon wraps around.
 6. **Surprise me** — a mode that chooses among the other five screens; it is not a sixth image. Green-button presses reroll while this mode is selected, and an hourly timer may reroll while the mode remains selected. Consecutive repeats are excluded.
 
-The left/right white buttons move between modes; the green button returns to the portrait except on Surprise me, where it rerolls. The device downloads a packed Gray4 frame over LAN; previews are available as PNGs. Seeed_GFX is used instead of ESPHome's monochrome display path to preserve four greys. Password-protected Arduino OTA was configured in the first-run Wi-Fi portal; the initial USB flash is complete.
+The left/right white buttons move between modes. The green button returns to the portrait on ordinary pages, requests a new Met work on Artwork, and rerolls on Surprise me. Artwork selection happens asynchronously: the panel polls for up to two minutes and redraws only after the NAS publishes a different frame. The device downloads a packed Gray4 frame over LAN; previews are available as PNGs. Seeed_GFX is used instead of ESPHome's monochrome display path to preserve four greys. Password-protected Arduino OTA was configured in the first-run Wi-Fi portal; the initial USB flash is complete.
 
 ## Data-driven screen previews
 
@@ -130,7 +130,7 @@ The house-anchor prompt used the built-in image-generation edit tool with the up
 
 - The E1001 was flashed by USB through `ubuntu-desktop`; subsequent updates can use password-protected OTA. The build uses `Seeed_GFX` board combo 520.
 - On first boot, join the `E1001-Artwork` setup access point, enter Wi-Fi credentials, confirm `http://192.168.0.10:8765` as the image server, and set an OTA password of at least eight characters. The password is kept in the device's preferences, not in Git. Hold the green button while powering up to reopen this portal later.
-- All three buttons, all five pages, Surprise reroll and a weather refresh have been tested on the physical panel.
+- All three buttons, all five pages, Surprise reroll and a weather refresh have been tested on the physical panel. On Artwork, the green button now asks the NAS for the next suitable Met work without blanking the current frame.
 - Special editions are enabled in `artwork-selection.json` and appear automatically on their dates: New Year (1 January), Halloween (31 October), Bonfire Night (5 November), Abhi's birthday (16 November), Sarah-Jane's birthday (19 December) and Christmas (25 December).
 - The USB-powered firmware keeps Wi-Fi and OTA available, uses DTIM-aware Wi-Fi modem sleep, polls buttons every 75 ms and avoids redrawing an unchanged image after reboot. It does **not** enter deep sleep, which would change button and OTA availability; a future battery configuration would need a separate wake strategy.
 

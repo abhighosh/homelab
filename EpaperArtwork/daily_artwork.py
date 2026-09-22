@@ -37,8 +37,10 @@ SEARCHES = (
 )
 
 
-def _seed(day: date) -> int:
-    return int.from_bytes(hashlib.sha256(day.isoformat().encode()).digest()[:8], "big")
+def _seed(day: date, variant: int = 0) -> int:
+    return int.from_bytes(
+        hashlib.sha256(f"{day.isoformat()}:{variant}".encode()).digest()[:8], "big"
+    )
 
 
 def _write(path: Path, payload: bytes) -> None:
@@ -47,8 +49,29 @@ def _write(path: Path, payload: bytes) -> None:
     temporary.replace(path)
 
 
-def _paths(day: date) -> tuple[Path, Path]:
-    return CACHE / f"{day.isoformat()}.jpg", CACHE / f"{day.isoformat()}.json"
+def _paths(day: date, variant: int = 0) -> tuple[Path, Path]:
+    suffix = "" if variant == 0 else f"-v{variant}"
+    return CACHE / f"{day.isoformat()}{suffix}.jpg", CACHE / f"{day.isoformat()}{suffix}.json"
+
+
+def _selection_path() -> Path:
+    return CACHE / "selection.json"
+
+
+def _selected_variant(day: date) -> int:
+    try:
+        selection = json.loads(_selection_path().read_text(encoding="utf-8"))
+        if selection.get("day") == day.isoformat():
+            return max(0, int(selection.get("variant", 0)))
+    except (OSError, ValueError, TypeError):
+        pass
+    return 0
+
+
+def _save_selection(day: date, variant: int) -> None:
+    _write(_selection_path(), json.dumps({
+        "day": day.isoformat(), "variant": variant,
+    }, separators=(",", ":")).encode())
 
 
 def _load(metadata_path: Path, *, current_only: bool = False) -> dict | None:
@@ -70,7 +93,7 @@ def _load(metadata_path: Path, *, current_only: bool = False) -> dict | None:
 def _last_good() -> dict | None:
     if not CACHE.is_dir():
         return None
-    for metadata_path in sorted(CACHE.glob("????-??-??.json"), reverse=True):
+    for metadata_path in sorted(CACHE.glob("????-??-??*.json"), reverse=True):
         if record := _load(metadata_path):
             return record
     return None
@@ -132,8 +155,9 @@ def suitability(image: Image.Image) -> tuple[bool, str]:
     return True, f"aspect {aspect:.2f}, detail density {edge_ratio:.2f}"
 
 
-def _fetch(day: date) -> dict:
-    rng = random.Random(_seed(day))
+def _fetch(day: date, variant: int = 0, excluded_ids: set[int] | None = None) -> dict:
+    rng = random.Random(_seed(day, variant))
+    excluded_ids = excluded_ids or set()
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json"})
     searches = list(SEARCHES)
@@ -158,6 +182,8 @@ def _fetch(day: date) -> dict:
 
         for object_id in object_ids[:15]:
             try:
+                if int(object_id) in excluded_ids:
+                    continue
                 response = session.get(OBJECT_URL.format(object_id=int(object_id)), timeout=(5, 20))
                 response.raise_for_status()
                 item = response.json()
@@ -171,9 +197,10 @@ def _fetch(day: date) -> dict:
                 if not accepted:
                     LOG.info("Rejected Met object %s: %s", object_id, reason)
                     continue
-                image_path, metadata_path = _paths(day)
+                image_path, metadata_path = _paths(day, variant)
                 record = {
                     "selection_version": SELECTION_VERSION,
+                    "selection_variant": variant,
                     "selected_for": day.isoformat(),
                     "object_id": int(item["objectID"]),
                     "title": (item.get("title") or "Untitled").strip(),
@@ -199,11 +226,14 @@ def _fetch(day: date) -> dict:
 def daily_artwork(day: date) -> dict:
     """Return today's cached work, fetching it once; fall back to last-good."""
     CACHE.mkdir(parents=True, exist_ok=True)
-    _, metadata_path = _paths(day)
+    variant = _selected_variant(day)
+    _, metadata_path = _paths(day, variant)
     if record := _load(metadata_path, current_only=True):
         return record
     try:
-        return _fetch(day)
+        record = _fetch(day, variant)
+        _save_selection(day, variant)
+        return record
     except Exception:
         fallback = _last_good()
         if fallback:
@@ -211,3 +241,19 @@ def daily_artwork(day: date) -> dict:
             fallback["stale_for"] = day.isoformat()
             return fallback
         raise
+
+
+def next_daily_artwork(day: date) -> dict:
+    """Select and persist a different suitable work for an explicit reroll."""
+    CACHE.mkdir(parents=True, exist_ok=True)
+    current = daily_artwork(day)
+    variant = _selected_variant(day) + 1
+    _, metadata_path = _paths(day, variant)
+    record = _load(metadata_path, current_only=True)
+    excluded = {int(current["object_id"])} if current.get("object_id") is not None else set()
+    if record and int(record.get("object_id", -1)) in excluded:
+        record = None
+    if record is None:
+        record = _fetch(day, variant, excluded)
+    _save_selection(day, variant)
+    return record

@@ -27,6 +27,12 @@ class ScreenModeTests(unittest.TestCase):
         self.assertEqual(mode.move(1, 4), "portrait")
         self.assertEqual(mode.green_button(5), "portrait")
 
+    def test_green_button_stays_on_artwork_for_server_reroll(self) -> None:
+        mode = ScreenMode()
+        mode.select("artwork", 0)
+        self.assertEqual(mode.green_button(1), "artwork")
+        self.assertEqual(mode.page, "artwork")
+
     def test_surprise_never_repeats_and_only_ticks_in_mode(self) -> None:
         mode = ScreenMode(rng=random.Random(5))
         first = mode.select("surprise", 0)

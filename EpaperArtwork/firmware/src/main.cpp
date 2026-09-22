@@ -26,6 +26,8 @@ constexpr uint32_t kFailurePollMs = 5UL * 60UL * 1000UL;
 constexpr uint32_t kMinPollSeconds = 30;
 constexpr uint32_t kMaxPollSeconds = 30UL * 60UL;
 constexpr uint32_t kSurpriseMs = 60UL * 60UL * 1000UL;
+constexpr uint32_t kArtworkPollMs = 5UL * 1000UL;
+constexpr uint32_t kArtworkTimeoutMs = 2UL * 60UL * 1000UL;
 const char *kPages[] = {"portrait", "today", "artwork", "almanac", "constellations"};
 constexpr uint8_t kSurprise = 5;
 
@@ -44,6 +46,8 @@ uint32_t lastButton = 0;
 bool leftWasDown = false;
 bool rightWasDown = false;
 bool greenWasDown = false;
+bool artworkRefreshPending = false;
+uint32_t artworkRefreshStarted = 0;
 
 void configureNetwork() {
   WiFi.mode(WIFI_STA);
@@ -141,7 +145,35 @@ void refresh(bool force = false) {
   }
   nextPollMs = suggestedPollMs;
   lastPoll = millis();
-  if (force || shownHash != remoteHash) fetchAndDisplay(shown, remoteHash);
+  if (force || shownHash != remoteHash) {
+    if (fetchAndDisplay(shown, remoteHash)) artworkRefreshPending = false;
+  } else if (artworkRefreshPending) {
+    if (millis() - artworkRefreshStarted < kArtworkTimeoutMs) {
+      nextPollMs = kArtworkPollMs;
+    } else {
+      artworkRefreshPending = false;
+      LOG.println("Artwork refresh timed out; retaining current image");
+    }
+  }
+}
+
+void requestNextArtwork() {
+  if (WiFi.status() != WL_CONNECTED || artworkRefreshPending) return;
+  HTTPClient http;
+  http.setTimeout(10000);
+  if (!http.begin(serverUrl + "/artwork/next")) return;
+  http.addHeader("Content-Type", "application/json");
+  int code = http.POST("{}");
+  http.end();
+  if (code == HTTP_CODE_ACCEPTED) {
+    artworkRefreshPending = true;
+    artworkRefreshStarted = millis();
+    nextPollMs = kArtworkPollMs;
+    lastPoll = millis();
+    LOG.println("Requested next artwork");
+  } else {
+    LOG.printf("Artwork refresh request failed: HTTP %d\n", code);
+  }
 }
 
 void reroll() {
@@ -154,6 +186,7 @@ void reroll() {
 }
 
 void changeMode(uint8_t next) {
+  artworkRefreshPending = false;
   mode = next;
   prefs.putUChar("mode", mode);
   if (mode == kSurprise) reroll();
@@ -169,6 +202,7 @@ void onButton(uint8_t pin) {
   lastButton = millis();
   if (pin == kGreen) {
     if (mode == kSurprise) reroll();
+    else if (mode == 2) requestNextArtwork();
     else changeMode(0);
   } else if (pin == kLeft) {
     changeMode((mode + kSurprise) % (kSurprise + 1));

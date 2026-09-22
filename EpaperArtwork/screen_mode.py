@@ -47,6 +47,9 @@ class ScreenMode:
     def green_button(self, now: float) -> str:
         if self.page == "surprise":
             return self.reroll(now)
+        if self.page == "artwork":
+            # Firmware asks the NAS for another work while staying on-page.
+            return self.shown
         return self.select("portrait", now)
 
     def hourly_tick(self, now: float) -> str:

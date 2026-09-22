@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from frame_codec import FRAME_BYTES, pack_gray4
-from daily_artwork import daily_artwork
+from daily_artwork import daily_artwork, next_daily_artwork
 from live_data import ZONE, build_live_data, next_artwork_change
 from open_meteo import fetch
 from render_screens import ROOT, render_pages
@@ -31,7 +31,8 @@ FAILURE_RETRY = timedelta(minutes=5)
 DISPLAY_GRACE_SECONDS = 30
 state_lock = threading.Lock()
 state: dict = {"pages": {}, "artwork": None, "rendered_at": None, "last_error": None,
-               "next_update_at": None}
+               "next_update_at": None, "artwork_refreshing": False}
+render_event = threading.Event()
 
 
 def atomic_write(path: Path, payload: bytes) -> None:
@@ -40,9 +41,10 @@ def atomic_write(path: Path, payload: bytes) -> None:
     temporary.replace(path)
 
 
-def render(snapshot: dict) -> None:
+def render(snapshot: dict, *, advance_artwork: bool = False) -> None:
     data = build_live_data(snapshot)
-    artwork_record = daily_artwork(datetime.now(ZONE).date())
+    day = datetime.now(ZONE).date()
+    artwork_record = next_daily_artwork(day) if advance_artwork else daily_artwork(day)
     data["artwork"] = artwork_record
     images = render_pages(data)
     pages = {}
@@ -75,20 +77,30 @@ def render(snapshot: dict) -> None:
 def worker() -> None:
     snapshot = None
     next_weather_at = datetime.now(ZONE)
+    wait_seconds = 0.0
     while True:
+        if wait_seconds:
+            render_event.wait(wait_seconds)
+            render_event.clear()
         now = datetime.now(ZONE)
+        with state_lock:
+            advance_artwork = state["artwork_refreshing"]
         try:
             if snapshot is None or now >= next_weather_at:
                 snapshot = fetch()
                 atomic_write(SNAPSHOT, json.dumps(snapshot, separators=(",", ":")).encode())
                 next_weather_at = datetime.now(ZONE) + WEATHER_INTERVAL
-            render(snapshot)
+            render(snapshot, advance_artwork=advance_artwork)
         except Exception as exc:  # keep last good frames during API/network trouble
             LOG.exception("Weather/render failed; retaining last good frames")
             with state_lock:
                 state["last_error"] = str(exc)
             if now >= next_weather_at:
                 next_weather_at = datetime.now(ZONE) + FAILURE_RETRY
+        finally:
+            if advance_artwork:
+                with state_lock:
+                    state["artwork_refreshing"] = False
         now = datetime.now(ZONE)
         try:
             next_boundary = next_artwork_change(now)
@@ -102,7 +114,8 @@ def worker() -> None:
         # which could otherwise select the outgoing daypart again.
         wait_seconds = max(1.0, (deadline - datetime.now(ZONE)).total_seconds() + 1.0)
         LOG.info("Next render at %s (%d seconds)", deadline.isoformat(), round(wait_seconds))
-        threading.Event().wait(wait_seconds)
+        # A button request wakes this wait immediately; scheduled weather and
+        # solar-boundary renders continue to use the calculated deadline.
 
 
 def next_check_seconds(deadline: datetime | None, now: datetime | None = None) -> int:
@@ -158,6 +171,7 @@ class Handler(BaseHTTPRequestHandler):
                     "next_update_at": next_update_at.isoformat() if next_update_at else None,
                     "pages": list(state["pages"]),
                     "artwork": state["artwork"],
+                    "artwork_refreshing": state["artwork_refreshing"],
                 }).encode()
             self.send_bytes(200, payload, "application/json")
             return
@@ -189,6 +203,21 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 self.send_error(503, "Waiting for first weather forecast")
                 return
+        self.send_error(404)
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = urlsplit(self.path).path
+        if path == "/artwork/next":
+            with state_lock:
+                already_refreshing = state["artwork_refreshing"]
+                state["artwork_refreshing"] = True
+            render_event.set()
+            payload = json.dumps({
+                "accepted": True,
+                "already_refreshing": already_refreshing,
+            }).encode()
+            self.send_bytes(202, payload, "application/json")
+            return
         self.send_error(404)
 
 def main() -> None:
