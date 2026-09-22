@@ -780,6 +780,8 @@ def constellations(data: dict) -> Image.Image:
         if len(chosen) == 8:
             break
 
+    geometry = Image.new("L", SIZE, 0)
+    geometry_draw = ImageDraw.Draw(geometry)
     for _, group, _ in chosen:
         for line in group["lines"]:
             for first_hip, second_hip in zip(line, line[1:]):
@@ -787,36 +789,82 @@ def constellations(data: dict) -> Image.Image:
                     a, b = sky_points[first_hip], sky_points[second_hip]
                     if a[2] > 15 and b[2] > 15 and abs(a[0] - b[0]) < 250:
                         draw.line((a[0], a[1], b[0], b[1]), fill=LIGHT, width=3)
+                        geometry_draw.line((a[0], a[1], b[0], b[1]), fill=255, width=9)
     for x, y, _, mag, _ in sky_points.values():
         if mag <= 3.8:
             size = 3 if mag < 1.5 else (2 if mag < 3 else 1)
             draw.ellipse((x - size, y - size, x + size, y + size), fill=WHITE)
+            geometry_draw.ellipse((x - size - 4, y - size - 4,
+                                   x + size + 4, y + size + 4), fill=255)
+
+    def overlap_area(first: tuple[int, int, int, int],
+                     second: tuple[int, int, int, int]) -> int:
+        width = max(0, min(first[2], second[2]) - max(first[0], second[0]))
+        height = max(0, min(first[3], second[3]) - max(first[1], second[1]))
+        return width * height
+
     occupied: list[tuple[int, int, int, int]] = []
-    for _, group, visible in chosen:
-        x = round(sum(p[0] for p in visible) / len(visible))
-        bottom = max(p[1] for p in visible)
+    # Place the widest names first; they have the fewest viable positions.
+    for _, group, visible in sorted(chosen, key=lambda item: len(item[1]["name"]), reverse=True):
+        points = [(round(p[0]), round(p[1])) for p in visible]
+        left_x, right_x = min(p[0] for p in points), max(p[0] for p in points)
+        top_y, bottom_y = min(p[1] for p in points), max(p[1] for p in points)
+        centre_x = round(sum(p[0] for p in points) / len(points))
+        centre_y = round(sum(p[1] for p in points) / len(points))
         name = group["name"].upper()
         face = font(SERIF_BOLD, 20)
         tracking = 2
         label_width = sum(draw.textlength(character, font=face) for character in name) + tracking * (len(name) - 1)
-        for dx, dy in ((0, 0), (55, 0), (-55, 0), (0, 30), (55, 30), (-55, 30)):
-            label_x, label_y = x + dx, bottom + 24 + dy
-            text_box = draw.textbbox((label_x, label_y), name, font=face, anchor="mm")
-            box = (round(label_x - label_width / 2) - 4, text_box[1] - 4,
-                   round(label_x + label_width / 2) + 4, text_box[3] + 4)
-            if box[0] < 8 or box[2] > 792 or box[1] < 8 or box[3] > 414:
-                continue
-            if any(not (box[2] + 3 < old[0] or box[0] - 3 > old[2] or
-                        box[3] + 3 < old[1] or box[1] - 3 > old[3]) for old in occupied):
-                continue
-            occupied.append(box)
-            draw.line((label_x, box[1], x, bottom), fill=DARK, width=2)
-            cursor = label_x - label_width / 2
-            for character in name:
-                draw.text((cursor, label_y), character, font=face, fill=WHITE, anchor="lm",
-                          stroke_width=1, stroke_fill=BLACK)
-                cursor += draw.textlength(character, font=face) + tracking
-            break
+        label_height = draw.textbbox((0, 0), name, font=face, anchor="mm")[3] - \
+            draw.textbbox((0, 0), name, font=face, anchor="mm")[1]
+        top_point = min(points, key=lambda point: point[1])
+        bottom_point = max(points, key=lambda point: point[1])
+        left_point = min(points, key=lambda point: point[0])
+        right_point = max(points, key=lambda point: point[0])
+        sides = {
+            "above": (centre_x, top_y - 22, top_point),
+            "below": (centre_x, bottom_y + 24, bottom_point),
+            "left": (left_x - label_width / 2 - 18, centre_y, left_point),
+            "right": (right_x + label_width / 2 + 18, centre_y, right_point),
+        }
+        preferred = ("above", "below", "left", "right") if centre_y < 220 else \
+            ("below", "above", "left", "right")
+        candidates = []
+        for preference, side in enumerate(preferred):
+            base_x, base_y, target = sides[side]
+            shifts = ((0, 0), (-45, 0), (45, 0)) if side in ("above", "below") else \
+                ((0, 0), (0, -28), (0, 28))
+            for shift_rank, (dx, dy) in enumerate(shifts):
+                label_x, label_y = round(base_x + dx), round(base_y + dy)
+                half_width, half_height = label_width / 2, label_height / 2
+                box = (round(label_x - half_width) - 4, round(label_y - half_height) - 4,
+                       round(label_x + half_width) + 4, round(label_y + half_height) + 4)
+                if box[0] < 8 or box[2] > 792 or box[1] < 32 or box[3] > 414:
+                    continue
+                constellation_ink = geometry.crop(box).histogram()[255]
+                label_overlap = sum(overlap_area(box, old) for old in occupied)
+                if side == "above":
+                    leader_start = (label_x, box[3])
+                elif side == "below":
+                    leader_start = (label_x, box[1])
+                elif side == "left":
+                    leader_start = (box[2], label_y)
+                else:
+                    leader_start = (box[0], label_y)
+                leader_length = math.dist(leader_start, target)
+                score = (label_overlap * 10000 + constellation_ink * 80 +
+                         preference * 120 + shift_rank * 18 + leader_length)
+                candidates.append((score, label_x, label_y, box, leader_start, target))
+        if not candidates:
+            continue
+        _, label_x, label_y, box, leader_start, target = min(candidates, key=lambda item: item[0])
+        occupied.append(box)
+        draw.line((*leader_start, *target), fill=LIGHT, width=2)
+        cursor = label_x - label_width / 2
+        for character in name:
+            draw.text((cursor, label_y), character, font=face, fill=WHITE, anchor="lm",
+                      stroke_width=1, stroke_fill=BLACK)
+            cursor += draw.textlength(character, font=face) + tracking
 
     draw.line((10, 430, 790, 430), fill=DARK, width=1)
     for label, az in (("N", 0), ("E", 90), ("S", 180), ("W", 270), ("N", 360)):
