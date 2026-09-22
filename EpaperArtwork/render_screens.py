@@ -857,9 +857,8 @@ def constellations(data: dict) -> Image.Image:
                 candidates.append((score, label_x, label_y, box, leader_start, target))
         if not candidates:
             continue
-        _, label_x, label_y, box, leader_start, target = min(candidates, key=lambda item: item[0])
+        _, label_x, label_y, box, _, _ = min(candidates, key=lambda item: item[0])
         occupied.append(box)
-        draw.line((*leader_start, *target), fill=LIGHT, width=2)
         cursor = label_x - label_width / 2
         for character in name:
             draw.text((cursor, label_y), character, font=face, fill=WHITE, anchor="lm",
