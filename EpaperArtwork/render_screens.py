@@ -57,6 +57,13 @@ def font(path: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(path, size)
 
 
+def material_weather_font(size: int, weight: int = 400) -> ImageFont.FreeTypeFont:
+    """Return the variable outline icon font at an explicit stroke weight."""
+    face = font(WEATHER_FONT, size)
+    face.set_variation_by_axes([0, 0, 48, weight])
+    return face
+
+
 def centered(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, face: ImageFont.FreeTypeFont, fill: int = BLACK) -> None:
     draw.text(xy, text, font=face, fill=fill, anchor="mm")
 
@@ -230,7 +237,7 @@ def weather_kind(condition: str) -> str:
 def weather_icon(draw: ImageDraw.ImageDraw, condition: str, x: int, y: int) -> None:
     """Rasterise a single Material Symbols glyph; no icon work on-device."""
     draw.text((x, y), WEATHER_GLYPHS[weather_kind(condition)],
-              font=font(WEATHER_FONT, 64), fill=DARK, anchor="mm")
+              font=material_weather_font(64, 300), fill=BLACK, anchor="mm")
 
 
 def today(data: dict) -> Image.Image:
@@ -654,7 +661,7 @@ def almanac(data: dict) -> Image.Image:
     forecast = data["forecast"]
     centers = (143, 400, 657)
     draw.rectangle((15, 15, 785, 465), outline=BLACK, width=3)
-    centered(draw, (400, 46), date_label(current).upper(), font(SANS, 20), BLACK)
+    centered(draw, (400, 46), date_label(current).upper(), font(SANS_BOLD, 26), BLACK)
     draw.line((45, 72, 755, 72), fill=LIGHT, width=2)
     for divider in (271, 529):
         draw.line((divider, 92, divider, 413), fill=LIGHT, width=2)
@@ -667,13 +674,13 @@ def almanac(data: dict) -> Image.Image:
         a, b = 56, 67
         draw.line((sun_x + a * math.cos(angle), icon_y + a * math.sin(angle),
                    sun_x + b * math.cos(angle), icon_y + b * math.sin(angle)), fill=BLACK, width=2)
-    centered(draw, (sun_x, 256), "SUN", font(SERIF_BOLD, 24))
-    draw.text((55, 292), "Rise", font=font(SANS, 20), fill=BLACK)
-    draw.text((247, 292), "Set", font=font(SANS, 20), fill=BLACK, anchor="ra")
+    centered(draw, (sun_x, 256), "SUN", font(SERIF_BOLD, 26))
+    draw.text((55, 292), "Rise", font=font(SANS_BOLD, 21), fill=BLACK)
+    draw.text((247, 292), "Set", font=font(SANS_BOLD, 21), fill=BLACK, anchor="ra")
     draw.text((55, 326), sky["sunrise"], font=font(SERIF_BOLD, 30), fill=BLACK)
     draw.text((247, 326), sky["sunset"], font=font(SERIF_BOLD, 30), fill=BLACK, anchor="ra")
     daylight = parse_hm(sky["sunset"]) - parse_hm(sky["sunrise"])
-    centered(draw, (sun_x, 388), f"{daylight // 60}h {daylight % 60:02d}m daylight", font(SANS, 19), BLACK)
+    centered(draw, (sun_x, 388), f"{daylight // 60}h {daylight % 60:02d}m daylight", font(SANS_BOLD, 22), BLACK)
 
     # Render the illuminated fraction geometrically; white is lit, black is dark.
     fraction = max(0.0, min(1.0, sky["moon_illumination_percent"] / 100))
@@ -686,23 +693,23 @@ def almanac(data: dict) -> Image.Image:
             lit = x >= threshold if waxing else x <= threshold
             draw.point((x, y), fill=WHITE if lit else BLACK)
     draw.ellipse((mx - moon_radius, my - moon_radius, mx + moon_radius, my + moon_radius), outline=BLACK, width=2)
-    centered(draw, (moon_x, 256), "MOON", font(SERIF_BOLD, 24))
-    centered(draw, (moon_x, 302), sky["moon_phase"], font(SERIF, 23))
-    centered(draw, (moon_x, 343), f"{sky['moon_illumination_percent']}% illuminated", font(SANS, 19), BLACK)
-    centered(draw, (moon_x, 388), f"Moonrise {sky['moonrise']}", font(SANS, 19), BLACK)
+    centered(draw, (moon_x, 256), "MOON", font(SERIF_BOLD, 26))
+    centered(draw, (moon_x, 302), sky["moon_phase"], font(SERIF_BOLD, 25))
+    centered(draw, (moon_x, 343), f"{sky['moon_illumination_percent']}% illuminated", font(SANS_BOLD, 21), BLACK)
+    centered(draw, (moon_x, 388), f"Moonrise {sky['moonrise']}", font(SANS_BOLD, 22), BLACK)
 
     draw.text((weather_x, icon_y), WEATHER_GLYPHS[weather_kind(forecast["condition"])],
-              font=font(WEATHER_FONT, 114), fill=DARK, anchor="mm")
-    centered(draw, (weather_x, 256), "WEATHER", font(SERIF_BOLD, 24))
+              font=material_weather_font(114, 250), fill=BLACK, anchor="mm")
+    centered(draw, (weather_x, 256), "WEATHER", font(SERIF_BOLD, 26))
     condition = forecast["condition"]
-    condition_face = next((face for size in range(23, 17, -1)
-                           if draw.textlength(condition, font=(face := font(SERIF, size))) <= 225),
-                          font(SERIF, 17))
+    condition_face = next((face for size in range(25, 19, -1)
+                           if draw.textlength(condition, font=(face := font(SERIF_BOLD, size))) <= 225),
+                          font(SERIF_BOLD, 19))
     centered(draw, (weather_x, 302), condition, condition_face)
     centered(draw, (weather_x, 343), f"{forecast['high_c']}° / {forecast['low_c']}°", font(SERIF_BOLD, 30))
-    centered(draw, (weather_x, 388), f"{forecast['rain_chance_percent']}% chance of rain", font(SANS, 19), BLACK)
+    centered(draw, (weather_x, 388), f"{forecast['rain_chance_percent']}% chance of rain", font(SANS_BOLD, 22), BLACK)
 
-    centered(draw, (400, 438), f"Civil dawn {sky['civil_dawn']}  ·  Civil dusk {sky['civil_dusk']}", font(SANS, 18), BLACK)
+    centered(draw, (400, 438), f"Civil dawn {sky['civil_dawn']}  ·  Civil dusk {sky['civil_dusk']}", font(SANS_BOLD, 22), BLACK)
     return image
 
 

@@ -53,6 +53,12 @@ seven-glyph subset of Google's [Material Symbols Outlined](https://github.com/go
 font (Apache 2.0; licence in `assets/fonts/`) remains available for other weather
 views; the E1001 itself does no font rendering.
 
+The almanac uses enlarged bold typography for its date and secondary facts,
+including daylight duration, illumination, moonrise, rain chance and civil
+dawn/dusk. Its Material Symbols weather glyph is rendered in black using the
+font's lighter variable weight so it matches the line weight of the geometric
+sun and moon more closely.
+
 The selected wide map uses real [OpenStreetMap](https://www.openstreetmap.org/copyright) road, rail and waterway geometry from one-time cached [Geofabrik county extracts](https://download.geofabrik.de/europe/united-kingdom/england.html), centred on the public [Launton village centre](https://mapcarta.com/17635298). `fetch_vector_map.py` builds a compact road-network JSON in Git-ignored `output/`; the renderer draws its paths directly at the E1001's 800×480 resolution, so fine roads do not break up during raster-tile colour extraction or downsampling. It overlays restrained place labels, scale and attribution. Rendering and the future device need no network access. The renderer rejects a cached map whose centre or width differs from `example-screen-data.json`. The earlier raster-tile and satellite map previews remain optional legacy review material. Do **not** put a precise home coordinate into this public repository.
 
 The map also accepts a `map_live` input with wind bearing/speed, next-hour rain probability, and a timezone-aware update timestamp. Its wind arrow shows the direction the air travels while the text names the direction it comes **from**. Missing wind or rain fields are labelled unavailable. The example values are explicitly marked **SAMPLE** on the image; the deployed adapter uses a fresh Open-Meteo hourly forecast and never copies sample values into live screens.
