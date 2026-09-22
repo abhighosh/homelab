@@ -1,0 +1,48 @@
+# Immediate dashboard feedback for the cloud-backed Husqvarna schedule switch.
+input_boolean:
+  mower_schedule_update_pending:
+    name: "Mower schedule update pending"
+    icon: mdi:progress-clock
+    initial: false
+
+script:
+  mower_schedule_toggle_with_feedback:
+    alias: "Mower schedule · Toggle with feedback"
+    description: >-
+      Shows a pending state immediately, asks Husqvarna to change the schedule,
+      and clears the pending state once the integration confirms the change.
+    icon: mdi:calendar-sync
+    mode: single
+    max_exceeded: silent
+    sequence:
+      - condition: state
+        entity_id: input_boolean.mower_schedule_update_pending
+        state: "off"
+      - condition: template
+        value_template: >-
+          {{ states('switch.garden_rodney_enable_schedule') in ['on', 'off'] }}
+      - variables:
+          requested_state: >-
+            {{ 'off' if is_state('switch.garden_rodney_enable_schedule', 'on') else 'on' }}
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.mower_schedule_update_pending
+      - choose:
+          - conditions: "{{ requested_state == 'on' }}"
+            sequence:
+              - action: switch.turn_on
+                continue_on_error: true
+                target:
+                  entity_id: switch.garden_rodney_enable_schedule
+        default:
+          - action: switch.turn_off
+            continue_on_error: true
+            target:
+              entity_id: switch.garden_rodney_enable_schedule
+      - wait_template: >-
+          {{ is_state('switch.garden_rodney_enable_schedule', requested_state) }}
+        timeout: "00:00:30"
+        continue_on_timeout: true
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.mower_schedule_update_pending
