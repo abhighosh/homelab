@@ -297,16 +297,14 @@ def artwork(data: dict) -> Image.Image:
     draw.line((18, 405, 782, 405), fill=LIGHT, width=1)
 
     title_face = font(SERIF_BOLD, 24)
-    detail_face = font(SANS, 16)
-    source_face = font(SANS_BOLD, 12)
+    detail_face = font(SANS_BOLD, 20)
     title = _fit_line(draw, record.get("title") or "UNTITLED", title_face, 750)
     artist = record.get("artist") or "Unknown artist"
     object_date = record.get("object_date") or ""
     detail = artist + (f"  ·  {object_date}" if object_date else "")
-    detail = _fit_line(draw, detail, detail_face, 570)
-    draw.text((20, 414), title, font=title_face, fill=BLACK)
-    draw.text((21, 450), detail, font=detail_face, fill=DARK)
-    draw.text((780, 453), "THE MET · OPEN ACCESS", font=source_face, fill=DARK, anchor="ra")
+    detail = _fit_line(draw, detail, detail_face, 750)
+    draw.text((400, 414), title, font=title_face, fill=BLACK, anchor="ma")
+    draw.text((400, 449), detail, font=detail_face, fill=BLACK, anchor="ma")
     return image
 
 
