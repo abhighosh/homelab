@@ -241,16 +241,16 @@ def today(data: dict) -> Image.Image:
     weather_text = (f"{forecast['condition']}  ·  {forecast['high_c']}° / {forecast['low_c']}°"
                     f"  ·  {forecast['rain_chance_percent']}% rain")
     draw = ImageDraw.Draw(image)
-    date_face = next((face for size in range(30, 23, -1)
-                      if draw.textlength(date_text, font=(face := font(SERIF, size))) <= 451),
-                     font(SERIF, 23))
-    weather_face = next((face for size in range(21, 15, -1)
-                         if draw.textlength(weather_text, font=(face := font(SANS, size))) <= 451),
-                        font(SANS, 15))
-    draw.text((765, 402), date_text, font=date_face, fill=BLACK, anchor="rt",
-              stroke_width=5, stroke_fill=WHITE)
-    draw.text((765, 440), weather_text, font=weather_face, fill=BLACK, anchor="rt",
-              stroke_width=5, stroke_fill=WHITE)
+    date_face = next((face for size in range(38, 29, -1)
+                      if draw.textlength(date_text, font=(face := font(SERIF_BOLD, size))) <= 700),
+                     font(SERIF_BOLD, 29))
+    weather_face = next((face for size in range(34, 25, -1)
+                         if draw.textlength(weather_text, font=(face := font(SANS_BOLD, size))) <= 740),
+                        font(SANS_BOLD, 25))
+    draw.text((775, 18), date_text, font=date_face, fill=BLACK, anchor="rt",
+              stroke_width=6, stroke_fill=WHITE)
+    draw.text((775, 68), weather_text, font=weather_face, fill=BLACK, anchor="rt",
+              stroke_width=6, stroke_fill=WHITE)
     return image
 
 

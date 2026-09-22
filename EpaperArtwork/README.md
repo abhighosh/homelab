@@ -45,7 +45,13 @@ python3 -m unittest discover -s EpaperArtwork -p 'test_*.py'
 
 Review `output/screens-contact-sheet.png` and the five `output/screen-*.png` images. These are **sample**, not live. The separate NAS service writes real `output/live-*.png` and `output/live-*.g4` files. `/health`, `/manifest`, `/preview/<page>.png`, and `/frame/<page>.g4` are its read-only LAN endpoints. It retains last-good frames across a weather/API outage or container restart. The E1001 keeps its last displayed image if it cannot download a replacement.
 
-The Today screen places a single-line all-caps date and a one-line weather summary directly on the artwork at the bottom right, without a panel or wash. The final image contains only the E1001's four gray levels. A seven-glyph subset of Google's [Material Symbols Outlined](https://github.com/google/material-design-icons) font (Apache 2.0; licence in `assets/fonts/`) remains available for other weather views; the E1001 itself does no font rendering.
+The Today screen places a prominent single-line all-caps date and a much larger
+bold one-line weather summary directly on the artwork at the top right, without
+a panel or wash. A six-pixel white halo preserves readability over both sky and
+branches. The final image contains only the E1001's four gray levels. A
+seven-glyph subset of Google's [Material Symbols Outlined](https://github.com/google/material-design-icons)
+font (Apache 2.0; licence in `assets/fonts/`) remains available for other weather
+views; the E1001 itself does no font rendering.
 
 The selected wide map uses real [OpenStreetMap](https://www.openstreetmap.org/copyright) road, rail and waterway geometry from one-time cached [Geofabrik county extracts](https://download.geofabrik.de/europe/united-kingdom/england.html), centred on the public [Launton village centre](https://mapcarta.com/17635298). `fetch_vector_map.py` builds a compact road-network JSON in Git-ignored `output/`; the renderer draws its paths directly at the E1001's 800×480 resolution, so fine roads do not break up during raster-tile colour extraction or downsampling. It overlays restrained place labels, scale and attribution. Rendering and the future device need no network access. The renderer rejects a cached map whose centre or width differs from `example-screen-data.json`. The earlier raster-tile and satellite map previews remain optional legacy review material. Do **not** put a precise home coordinate into this public repository.
 
