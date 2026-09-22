@@ -2,3 +2,10 @@ output/
 __pycache__/
 *.py[cod]
 firmware/.pio/
+
+# Generated and source artwork is intentionally kept on the renderer host,
+# not in Git. The catalog records filenames, while deployment/backup retains
+# the corresponding raster assets.
+assets/**/*.png
+assets/**/*.jpg
+assets/**/*.jpeg

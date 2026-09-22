@@ -7,6 +7,12 @@ with Astral, and serves five four-grey frames. Home Assistant and
 the Pi are **not** in the data path. The E1001 has been flashed and all five
 pages, buttons and Surprise mode have been tested on the physical display.
 
+Raster artwork under `assets/` is deliberately excluded from Git because the
+reviewed source set is large. It remains on this working copy and the NAS
+deployment and must be included in host backups. Git contains the renderer,
+firmware, catalog and provenance documentation, but a fresh clone needs the
+private raster asset set restored before it can render the house pages.
+
 Rendering is event-aware as well as weather-aware. The NAS schedules exact
 local boundaries for civil dawn, sunrise +35 minutes, sunset -35 minutes,
 civil dusk, midnight and each six-hour foreground slot. The manifest tells the
